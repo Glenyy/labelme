@@ -11,7 +11,7 @@ class MainApp(tk.Tk):
         tk.Tk.__init__(self, *args, **kwargs)
         set_styles(ttk.Style())
 
-        self.title("labelme")
+        self.title("AI标注工具")
         # 获取屏幕宽高
         screen_width = self.winfo_screenwidth()
         screen_height = self.winfo_screenheight()

@@ -42,7 +42,7 @@ class CanvasWidget(ttk.Frame):
         self.image_path_json = None  # 单独存储json文件路径
         self.image_index = 0  # 当前图片索引
 
-        self.current_operation_tip = None
+        self.current_operation_tip = None  # 当前画布上的绘图操作
         self.current_operation = None  # 根据当前绘图操作current_operation_tip创建对应实例
 
         self.original_image = None  # 存储原始图片对象
@@ -91,7 +91,7 @@ class CanvasWidget(ttk.Frame):
         # print('当前坐标（用于展示精度）', (x, y))  这里因为event只能获取整数级的坐标 导致精度损失严重 后续需要调整 考虑新的坐标获取方式
         self.canvasWidgetEventListener.on_mouse_move(x, y)
 
-    def on_canvas_resize(self, event):
+    def on_canvas_resize(self, event):  # canvas上没有加载图片时用该函数
         """
         当 Canvas 大小发生变化时，动态设置 scrollregion 保持中心点为 (0, 0)。
         """
@@ -137,7 +137,7 @@ class CanvasWidget(ttk.Frame):
             # 将canvas绑定到图片大小变化
             self.canvas.bind("<Configure>", self.on_img_canvas_resize)
 
-    def load_json(self, file_path):
+    def load_json(self, file_path):  # 加载json文件，将json数据中的图片路径和多边形数据加载到canvas中
         # 获取json数据
         with open(file_path, 'r') as f:
             json_data = json.load(f)
@@ -146,7 +146,7 @@ class CanvasWidget(ttk.Frame):
         self.image_path_dir = []
         self.image_path_dir.append(image_path)
         self.image_index = 0
-        shapes = json_data['shapes']
+        shapes = json_data['shapes']  # 这个shapes是json数据中的shapes字段
 
         self.canvas.delete('all')
         # 打开图片并创建 PhotoImage 对象
@@ -160,7 +160,7 @@ class CanvasWidget(ttk.Frame):
         self.canvas.bind("<Configure>", self.on_img_canvas_resize)
 
         # 通过shapes数据绘制多边形
-        for shape in shapes:
+        for shape in shapes:  # 遍历shapes字段中的每个shape
             if shape['type'] == 'polygon':
                 points = shape['points']
                 # 创建多边形
@@ -374,16 +374,16 @@ class CanvasWidget(ttk.Frame):
         self.tool_widget_frame = tool_widget_frame
 
     def set_current_operation(self):  # 根据传递过来的tip创建操作对象
-        if self.current_operation_tip == 'create_polygon':
+        if self.current_operation_tip == 'create_polygon':  # 如果tip是create_polygon则创建绘制多边形的对象
             self.current_operation = PolygonShape(self)
             for shape in self.shape:
                 shape.deselect()  # 当前操作状态改变时，取消之前选中的多边形
-            self.tool_widget_frame.tool_polygonal_editor_frame.delete_polygonal_button.config(state=DISABLED)
-            self.canvas.unbind("<Button-1>")
+            self.tool_widget_frame.tool_polygonal_editor_frame.delete_polygonal_button.config(state=DISABLED)  # 处于绘制多边形模式，禁用删除按钮
+            self.canvas.unbind("<Button-1>")  # 解除当前绑定的事件
             self.current_operation.bind_events()
         elif self.current_operation_tip == 'edit_polygon':  # 进入编辑多边形的模式
-            self.current_operation = None  # 编辑多边形模式不需要创建新的对象
-            self.canvas.bind("<Button-1>", self.on_edit_depiction_click)
+            self.current_operation = None  # 编辑多边形模式不需要创建新的对象 但是要可以对目前canvas上所有的图形编辑操作，包括删除、移动、缩放等（且这些操作在其对应的shape类中实现）
+            self.canvas.bind("<Button-1>", self.on_edit_depiction_click)  # 绑定点击事件，用于选择多边形进行编辑
 
 
 
@@ -399,7 +399,7 @@ class CanvasWidget(ttk.Frame):
             shapes.append(shape.to_dict())
         return shapes
 
-    def clear_shapes(self):
+    def clear_shapes(self):  # 清除所有多边形
         for shape in self.shape:
             shape.delete_myself()
         self.shape = []
@@ -412,24 +412,27 @@ class CanvasWidget(ttk.Frame):
         image_x = x / self.zoom_ratio[0]
         image_y = y / self.zoom_ratio[0]
 
-        # 取消之前选中的多边形
+        # 取消之前选中的多边形并且解绑编辑事件
         for shape in self.shape:
             shape.deselect()
+            shape.unbind_edit_events()  # 解绑选中多边形的编辑事件
 
         # 选择新多边形
         selected_depiction = self.select_depiction_at_position(image_x, image_y)  # 根据当前点击位置判断是否有多边形 是哪一个多边形
         if selected_depiction:
-            self.selected_depiction = selected_depiction
-            self.tool_widget_frame.tool_polygonal_editor_frame.delete_polygonal_button.config(state=NORMAL)
+            self.selected_depiction = selected_depiction  # 后续编辑操作在该被选中的图形实现代码中进行（如删除、移动、缩放等）
+
+            self.selected_depiction.bind_edit_events()  # 绑定选中多边形的编辑事件
+
+            self.tool_widget_frame.tool_polygonal_editor_frame.delete_polygonal_button.config(state=NORMAL)  # 如果有选中的多边形，则启用删除按钮
             # print(self.selected_depiction)
-        else:
+        else:  # 如果没有选中的多边形，则禁用删除按钮
             self.selected_depiction = None
             self.tool_widget_frame.tool_polygonal_editor_frame.delete_polygonal_button.config(state=DISABLED)
 
-    def select_depiction_at_position(self, x, y):
+    def select_depiction_at_position(self, x, y):  # 根据当前点击位置判断是否有多边形 是哪一个多边形
         for shape in self.shape:
             if shape.is_in_polygon(x, y):
-                shape.select()
                 return shape
         return
 
