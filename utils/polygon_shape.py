@@ -4,7 +4,7 @@ class PolygonShape:
         self.canvas = canvas_frame.canvas
 
         self.shape_type = "polygon"  # 图形类型 多边形
-        self.points = []  # 存储顶点  顶点坐标是相对于图片的坐标，而不是canvas上的绝对坐标
+        self.points = []  # 存储顶点(坐标及id) 顶点坐标是相对于图片的坐标，而不是canvas上的绝对坐标
         # 所有 Shape 对象中的 points 都是以图像左上角为原点 (0,0)，单位是像素
         # 所以在保存 Shape 对象时，需要保存图像的缩放比例和偏移量，以便在加载时正确地绘制 Shape 对象
         self.json_points = points  # 保存顶点坐标为json格式，用于保存和加载
@@ -19,6 +19,7 @@ class PolygonShape:
         self.root = self.get_root_window()
 
         self.is_select = False  # 是否该多边形被选中(默认未选中)
+        self.is_drag = False  # 是否正在拖拽(默认未拖拽)
 
     def find_intersection(self, width, height, x1, y1, x2, y2):  # 计算与图片的交点
         # 计算斜率 k
@@ -271,12 +272,18 @@ class PolygonShape:
         self.root.unbind("<Control-z>")
 
     def bind_edit_events(self):  # 绑定编辑事件
-        self.is_select = True  # 标记该多边形被选中
+        # self.is_select = True  # 标记该多边形被选中
         self.select()  # 选中多边形，将颜色改为蓝色
+        self.move_polygon()  # 绑定移动多边形的多个事件
+
 
     def unbind_edit_events(self):  # 解绑编辑事件
-        self.is_select = False  # 标记该多边形未被选中
-        self.deselect()  # 取消选中多边形，将颜色改为红色
+        if self.is_select:  # 如果该多边形被选中则可以解绑，否则不需要解绑
+            self.is_select = False  # 标记该多边形未被选中
+            self.deselect()  # 取消选中多边形，将颜色改为红色
+            self.canvas.unbind("<Button-1>", self.button1_id)  # 解绑鼠标按下事件
+            # self.canvas.unbind("<B1-Motion>")  # 解绑鼠标拖动事件
+            self.canvas.unbind("<ButtonRelease-1>")  # 解绑鼠标释放事件
 
     def bind_image_zoom_event(self):  # 绑定到图片缩放事件
         self.canvas.bind("<MouseWheel>", self.canvas_frame.on_zoom)  # 滚轮缩放事件
@@ -288,10 +295,10 @@ class PolygonShape:
             parent = parent.master
         return parent
 
-    def redraw(self):  # 因图片缩放重新绘制以正确显示
+    def redraw(self, dx=0, dy=0):  # 因图片缩放或标注移动重新绘制以正确显示
         if self.complete:
             # 记录所有点的坐标
-            points = [(x, y) for x, y, _ in self.points]
+            points = [(x + dx, y + dy) for x, y, _ in self.points]
             # 删除所有点和线
             for _, _, point_id in self.points:
                 self.canvas.delete(point_id)
@@ -322,6 +329,7 @@ class PolygonShape:
                 self.select()
             else:
                 self.deselect()
+
 
     def dynamic_draw(self):  # 动态重绘多边形 这个多边形是没有绘制完成的
         if not self.complete:
@@ -442,7 +450,61 @@ class PolygonShape:
         for line_id in self.lines:
             self.canvas.itemconfig(line_id, fill="#800000")  # 取消选中时将线的颜色改回红色
 
-    def move(self, dx, dy):  # 移动多边形
-        pass
+    def move_polygon(self):  # 移动多边形
+        # 整个移动多边形
+        self.drag_data = {"x": 0, "y": 0}  # 拖拽状态变量， 记录按下时相对于图片的位置
+
+        # 绑定鼠标事件
+        self.button1_id = self.canvas.bind("<Button-1>", self.mouse_press_event, add='+')  # 绑定鼠标按下事件
+        # self.canvas.bind("<B1-Motion>", self.mouse_drag)  # 绑定鼠标拖动事件
+        self.canvas.bind("<ButtonRelease-1>", self.mouse_release_event)  # 绑定鼠标松开事件
+
+    def mouse_press_event(self, event):
+        # 如果当前是不可拖拽状态则直接返回
+        if not self.is_drag:
+            return
+        # 判断当前点击的位置是否在当前选中的多边形内
+        temp_x = self.canvas.canvasx(event.x)  # 获取鼠标点击的 Canvas 坐标x
+        temp_y = self.canvas.canvasy(event.y)  # 获取鼠标点击的 Canvas 坐标y
+        # 将canvas的坐标转化为图片上的相对坐标
+        temp_image_x = temp_x / self.canvas_frame.zoom_ratio[0]
+        temp_image_y = temp_y / self.canvas_frame.zoom_ratio[0]
+        if not self.is_in_polygon(temp_image_x, temp_image_y):
+            return  # 如果点击的位置不在在当前选中的多边形内，则直接返回
+        # 处理鼠标按下事件（按下不松开）
+        self.drag_data["x"] = event.x / self.canvas_frame.zoom_ratio[0]  # 记录鼠标按下时相对于图片的x坐标
+        self.drag_data["y"] = event.y / self.canvas_frame.zoom_ratio[0]  # 记录鼠标按下时相对于图片的y坐标
+
+        # 改变光标样式
+        self.canvas.config(cursor="fleur")
+
+        # 按下按钮时绑定拖拽事件（防止标注瞬移）
+        self.canvas.bind("<B1-Motion>", self.mouse_drag)  # 绑定鼠标拖动事件
+
+    def mouse_drag(self, event):  # 处理鼠标拖动事件
+        if self.is_drag:  # 只有在拖拽状态下才处理
+            # 计算鼠标相对于图片的移动的距离
+            dx = event.x / self.canvas_frame.zoom_ratio[0] - self.drag_data["x"]
+            dy = event.y / self.canvas_frame.zoom_ratio[0] - self.drag_data["y"]
+
+            # 重绘多边形
+            self.redraw(dx, dy)
+
+            # 更新上次鼠标位置
+            self.drag_data["x"] = event.x / self.canvas_frame.zoom_ratio[0]  # 更新上次鼠标位置的x坐标
+            self.drag_data["y"] = event.y / self.canvas_frame.zoom_ratio[0]  # 更新上次鼠标位置的y坐标
+
+    def mouse_release_event(self, event):  # 处理鼠标松开事件
+        if not self.is_drag:  # 在释放的时候修改拖拽标记为可拖拽
+            self.is_drag = True  # 标记正在拖拽
+        if self.is_drag:  # 只有在拖拽状态下才处理
+            # 恢复光标样式
+            self.canvas.config(cursor="")
+
+        # 松开按钮时解绑拖动事件（防止标注瞬移）
+        self.canvas.unbind("<B1-Motion>")  # 解绑鼠标拖动事件
+
+
+
 
 

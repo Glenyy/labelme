@@ -190,7 +190,7 @@ class CanvasWidget(ttk.Frame):
         self.adjust_zoom(1.1)
         self.tool_widget_frame.tool_adaptation_frame.is_adaptation = False
         self.tool_widget_frame.tool_adaptation_frame.adaptation_btn.config(style='tool.TButton')
-        self.unbind("<Configure>")
+        self.unbind("<Configure>")  # 解绑图片大小变化事件
 
 
     def zoom_out(self):
@@ -405,23 +405,33 @@ class CanvasWidget(ttk.Frame):
         self.shape = []
 
     def on_edit_depiction_click(self, event):
+        # 判断当前点击的位置是否在当前选中的多边形内
+        if self.selected_depiction:
+            temp_x = self.canvas.canvasx(event.x)  # 获取鼠标点击的 Canvas 坐标x
+            temp_y = self.canvas.canvasy(event.y)  # 获取鼠标点击的 Canvas 坐标y
+            # 将canvas的坐标转化为图片上的相对坐标
+            temp_image_x = temp_x / self.zoom_ratio[0]
+            temp_image_y = temp_y / self.zoom_ratio[0]
+            if self.selected_depiction.is_in_polygon(temp_image_x, temp_image_y):
+                return  # 如果点击的位置在当前选中的多边形内，则直接返回，不应该再次触发on_edit_depiction_click函数的主要内容
+
+        # 接下来要修改这边，我要先根据鼠标点击的位置来判断有没有选择新的多边形，如果选择了得解绑旧的多边形编辑事件，没选择也得解绑
         """点击选择多边形"""
-        x = self.canvas.canvasx(event.x)
-        y = self.canvas.canvasy(event.y)
+        x = self.canvas.canvasx(event.x)  # 获取鼠标点击的 Canvas 坐标x
+        y = self.canvas.canvasy(event.y)  # 获取鼠标点击的 Canvas 坐标y
         # 将canvas的坐标转化为图片上的相对坐标
         image_x = x / self.zoom_ratio[0]
         image_y = y / self.zoom_ratio[0]
 
         # 取消之前选中的多边形并且解绑编辑事件
-        for shape in self.shape:
-            shape.deselect()
-            shape.unbind_edit_events()  # 解绑选中多边形的编辑事件
-
+        if self.selected_depiction:
+            self.selected_depiction.deselect()
+            self.selected_depiction.unbind_edit_events()  # 解绑选中多边形的编辑事件
         # 选择新多边形
         selected_depiction = self.select_depiction_at_position(image_x, image_y)  # 根据当前点击位置判断是否有多边形 是哪一个多边形
         if selected_depiction:
             self.selected_depiction = selected_depiction  # 后续编辑操作在该被选中的图形实现代码中进行（如删除、移动、缩放等）
-
+            self.selected_depiction.is_select = True  # 标记该多边形已被选中
             self.selected_depiction.bind_edit_events()  # 绑定选中多边形的编辑事件
 
             self.tool_widget_frame.tool_polygonal_editor_frame.delete_polygonal_button.config(state=NORMAL)  # 如果有选中的多边形，则启用删除按钮
