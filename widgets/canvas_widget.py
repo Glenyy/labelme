@@ -63,6 +63,8 @@ class CanvasWidget(ttk.Frame):
         # # 绑定鼠标左击事件
         # self.root.bind("<Button-1>", self.on_mouse_press_event)  # 需要只在图片范围内生效，不是整个canvas生效
 
+        self.edit_undo_stack = []  # 编辑操作撤销栈
+
 
         self.create_widget()
 
@@ -125,6 +127,7 @@ class CanvasWidget(ttk.Frame):
 
 
     def display_image(self, file_path):
+        self.edit_undo_stack.clear()  # 清空撤销栈
         if file_path:
             self.canvas.delete('all')
             # 打开图片并创建 PhotoImage 对象
@@ -280,7 +283,6 @@ class CanvasWidget(ttk.Frame):
         # 更新adaptation_entry显示的比例
         self.tool_widget_frame.tool_adaptation_frame.update_zoom_ratio(self.zoom_ratio)
 
-
     def set_zoom_ratio(self, zoom_ratio):
         self.zoom_ratio = zoom_ratio
 
@@ -343,6 +345,7 @@ class CanvasWidget(ttk.Frame):
         return parent
 
     def close_img_file(self):
+        self.edit_undo_stack.clear()  # 清空撤销栈
         self.current_image = None
         self.keep_img = None
         self.canvas.delete("all")
@@ -373,6 +376,37 @@ class CanvasWidget(ttk.Frame):
     def set_tool_widget_frame(self, tool_widget_frame):
         self.tool_widget_frame = tool_widget_frame
 
+    def push_edit_action(self, action):
+        """将一次编辑操作推入撤销栈"""
+        self.edit_undo_stack.append(action)
+
+    def undo_edit_action(self, event=None):  # 撤销编辑操作(核心)
+        if not self.edit_undo_stack:
+            return
+        action = self.edit_undo_stack.pop()
+        t = action['type']
+        shape = action['shape']
+
+        if t == 'move_vertex':
+            idx = action['vertex_idx']
+            ox, oy = action['old_pos']
+            _, _, point_id = shape.points[idx]
+            shape.points[idx] = (ox, oy, point_id)
+            shape.redraw()
+
+        elif t == 'move_polygon':
+            old_points = action['old_points']
+            for i, (ox, oy) in enumerate(old_points):
+                _, _, point_id = shape.points[i]
+                shape.points[i] = (ox, oy, point_id)
+            shape.redraw()
+
+        # elif t == 'delete_polygon':
+        #     shape_data = action['shape_data']
+        #     new_shape = PolygonShape(self, shape_data['points'])
+        #     new_shape.draw_json()
+        #     self.shape.append(new_shape)
+
     def set_current_operation(self):  # 根据传递过来的tip创建操作对象
         if self.current_operation_tip == 'create_polygon':  # 如果tip是create_polygon则创建绘制多边形的对象
             self.current_operation = PolygonShape(self)
@@ -384,6 +418,7 @@ class CanvasWidget(ttk.Frame):
         elif self.current_operation_tip == 'edit_polygon':  # 进入编辑多边形的模式
             self.current_operation = None  # 编辑多边形模式不需要创建新的对象 但是要可以对目前canvas上所有的图形编辑操作，包括删除、移动、缩放等（且这些操作在其对应的shape类中实现）
             self.canvas.bind("<Button-1>", self.on_edit_depiction_click)  # 绑定点击事件，用于选择多边形进行编辑
+            self.root.bind("<Control-z>", self.undo_edit_action)  # 绑定撤销编辑操作的事件
 
 
 
@@ -414,6 +449,9 @@ class CanvasWidget(ttk.Frame):
             temp_image_y = temp_y / self.zoom_ratio[0]
             if self.selected_depiction.is_in_polygon(temp_image_x, temp_image_y):
                 return  # 如果点击的位置在当前选中的多边形内，则直接返回，不应该再次触发on_edit_depiction_click函数的主要内容
+            # 点击在多边形外但靠近顶点，也保留选中状态（放行给顶点拖拽）
+            if self.selected_depiction.find_nearest_vertex(temp_x, temp_y, tolerance=8) is not None:
+                return
 
         # 接下来要修改这边，我要先根据鼠标点击的位置来判断有没有选择新的多边形，如果选择了得解绑旧的多边形编辑事件，没选择也得解绑
         """点击选择多边形"""
@@ -433,9 +471,10 @@ class CanvasWidget(ttk.Frame):
             self.selected_depiction = selected_depiction  # 后续编辑操作在该被选中的图形实现代码中进行（如删除、移动、缩放等）
             self.selected_depiction.is_select = True  # 标记该多边形已被选中
             self.selected_depiction.bind_edit_events()  # 绑定选中多边形的编辑事件
+            print("绑定编辑事件")
 
             self.tool_widget_frame.tool_polygonal_editor_frame.delete_polygonal_button.config(state=NORMAL)  # 如果有选中的多边形，则启用删除按钮
-            # print(self.selected_depiction)
+
         else:  # 如果没有选中的多边形，则禁用删除按钮
             self.selected_depiction = None
             self.tool_widget_frame.tool_polygonal_editor_frame.delete_polygonal_button.config(state=DISABLED)

@@ -19,7 +19,7 @@ class PolygonShape:
         self.root = self.get_root_window()
 
         self.is_select = False  # 是否该多边形被选中(默认未选中)
-        self.is_drag = False  # 是否正在拖拽(默认未拖拽)
+        # self.is_drag = False  # 是否正在拖拽(默认未拖拽)
 
     def find_intersection(self, width, height, x1, y1, x2, y2):  # 计算与图片的交点
         # 计算斜率 k
@@ -272,9 +272,9 @@ class PolygonShape:
         self.root.unbind("<Control-z>")
 
     def bind_edit_events(self):  # 绑定编辑事件
-        # self.is_select = True  # 标记该多边形被选中
         self.select()  # 选中多边形，将颜色改为蓝色
         self.move_polygon()  # 绑定移动多边形的多个事件
+        self._hover_id = self.canvas.bind("<Motion>", self._on_hover, add='+')
 
 
     def unbind_edit_events(self):  # 解绑编辑事件
@@ -424,6 +424,26 @@ class PolygonShape:
 
         return inside
 
+    def find_nearest_vertex(self, canvas_x, canvas_y, tolerance=8):
+        """
+        返回距离 (canvas_x, canvas_y) 最近的顶点索引，不在容差内则返回 None
+        参数使用 canvas 坐标而非图片坐标，因为容差是视觉像素概念，与缩放比例无关
+        tolerance=8 表示鼠标距离顶点圆心 8 像素以内就认定为"靠近"
+        """
+        if not self.complete or not self.points:
+            return None
+        zoom = self.canvas_frame.zoom_ratio[0]
+        min_dist = float('inf')
+        nearest_idx = None
+        for i, (img_x, img_y, _) in enumerate(self.points):
+            cx = img_x * zoom
+            cy = img_y * zoom
+            dist = ((canvas_x - cx) ** 2 + (canvas_y - cy) ** 2) ** 0.5
+            if dist < min_dist:
+                min_dist = dist
+                nearest_idx = i
+        return nearest_idx if min_dist <= tolerance else None
+
     def point_on_segment(self, p1, p2, p):
         """判断点 p 是否在线段 p1-p2 上（包括端点）"""
         x, y = p
@@ -453,24 +473,53 @@ class PolygonShape:
     def move_polygon(self):  # 移动多边形
         # 整个移动多边形
         self.drag_data = {"x": 0, "y": 0}  # 拖拽状态变量， 记录按下时相对于图片的位置
-
+        self.drag_mode = None  # "vertex" | "polygon" | None
+        self.drag_vertex_idx = None  # 被拖拽的顶点索引
+        self._drag_snapshot = None  # 撤销操作的快照，用于恢复到上一个状态时使用
+        self._drag_moved = False  # 新增：本次拖拽是否确实移动过
         # 绑定鼠标事件
         self.button1_id = self.canvas.bind("<Button-1>", self.mouse_press_event, add='+')  # 绑定鼠标按下事件
         # self.canvas.bind("<B1-Motion>", self.mouse_drag)  # 绑定鼠标拖动事件
         self.canvas.bind("<ButtonRelease-1>", self.mouse_release_event)  # 绑定鼠标松开事件
 
     def mouse_press_event(self, event):
-        # 如果当前是不可拖拽状态则直接返回
-        if not self.is_drag:
-            return
-        # 判断当前点击的位置是否在当前选中的多边形内
+        print("触发鼠标按下事件")
+        # 判断当前点击的位置是否在当前选中的多边形内  或者  判断当前点击位置是否在标注点附近
         temp_x = self.canvas.canvasx(event.x)  # 获取鼠标点击的 Canvas 坐标x
         temp_y = self.canvas.canvasy(event.y)  # 获取鼠标点击的 Canvas 坐标y
         # 将canvas的坐标转化为图片上的相对坐标
         temp_image_x = temp_x / self.canvas_frame.zoom_ratio[0]
         temp_image_y = temp_y / self.canvas_frame.zoom_ratio[0]
+
+        # 优先级 1：顶点拖拽
+        vertex_idx = self.find_nearest_vertex(temp_x, temp_y, tolerance=8)
+        if vertex_idx is not None:
+            self.drag_mode = "vertex"
+            self.drag_vertex_idx = vertex_idx
+            img_x, img_y, _ = self.points[vertex_idx]
+            self._drag_snapshot = {
+                'type': 'move_vertex',
+                'vertex_idx': vertex_idx,
+                'old_pos': (img_x, img_y),
+            }
+            self._drag_moved = False
+            self.drag_data["x"] = event.x / self.canvas_frame.zoom_ratio[0]
+            self.drag_data["y"] = event.y / self.canvas_frame.zoom_ratio[0]
+            self.canvas.config(cursor="crosshair")
+            self.canvas.bind("<B1-Motion>", self.mouse_drag_vertex, add='+')
+            return
+
+        # 优先级 2：整体拖拽
+        # 优先级 2：整体拖拽
         if not self.is_in_polygon(temp_image_x, temp_image_y):
-            return  # 如果点击的位置不在在当前选中的多边形内，则直接返回
+            return  # 如果点击的位置不在当前选中的多边形内，则直接返回
+        self.drag_mode = "polygon"
+        self._drag_snapshot = {
+            'type': 'move_polygon',
+            'old_points': [(x, y) for x, y, _ in self.points],
+        }
+        self._drag_moved = False
+
         # 处理鼠标按下事件（按下不松开）
         self.drag_data["x"] = event.x / self.canvas_frame.zoom_ratio[0]  # 记录鼠标按下时相对于图片的x坐标
         self.drag_data["y"] = event.y / self.canvas_frame.zoom_ratio[0]  # 记录鼠标按下时相对于图片的y坐标
@@ -481,30 +530,88 @@ class PolygonShape:
         # 按下按钮时绑定拖拽事件（防止标注瞬移）
         self.canvas.bind("<B1-Motion>", self.mouse_drag)  # 绑定鼠标拖动事件
 
+    def mouse_drag_vertex(self, event):  # 处理顶点拖拽事件
+        dx = event.x / self.canvas_frame.zoom_ratio[0] - self.drag_data["x"]
+        dy = event.y / self.canvas_frame.zoom_ratio[0] - self.drag_data["y"]
+
+        # 计算顶点新位置（图片坐标）
+        img_x, img_y, point_id = self.points[self.drag_vertex_idx]
+        new_img_x = img_x + dx
+        new_img_y = img_y + dy
+
+        # 更新画布上的顶点圆
+        zoom = self.canvas_frame.zoom_ratio[0]
+        cx, cy = new_img_x * zoom, new_img_y * zoom
+        self.canvas.coords(point_id, cx - 5, cy - 5, cx + 5, cy + 5)
+
+        # 更新顶点数据
+        self.points[self.drag_vertex_idx] = (new_img_x, new_img_y, point_id)
+
+        # 更新与该顶点相连的两条边
+        self._update_vertex_lines(self.drag_vertex_idx)
+
+        # 更新拖拽基准点
+        self.drag_data["x"] = event.x / self.canvas_frame.zoom_ratio[0]
+        self.drag_data["y"] = event.y / self.canvas_frame.zoom_ratio[0]
+
+        self._drag_moved = True
+
     def mouse_drag(self, event):  # 处理鼠标拖动事件
-        if self.is_drag:  # 只有在拖拽状态下才处理
-            # 计算鼠标相对于图片的移动的距离
-            dx = event.x / self.canvas_frame.zoom_ratio[0] - self.drag_data["x"]
-            dy = event.y / self.canvas_frame.zoom_ratio[0] - self.drag_data["y"]
+        # if self.is_drag:  # 只有在拖拽状态下才处理
+        # 计算鼠标相对于图片的移动的距离
+        dx = event.x / self.canvas_frame.zoom_ratio[0] - self.drag_data["x"]
+        dy = event.y / self.canvas_frame.zoom_ratio[0] - self.drag_data["y"]
 
-            # 重绘多边形
-            self.redraw(dx, dy)
+        # 重绘多边形
+        self.redraw(dx, dy)
 
-            # 更新上次鼠标位置
-            self.drag_data["x"] = event.x / self.canvas_frame.zoom_ratio[0]  # 更新上次鼠标位置的x坐标
-            self.drag_data["y"] = event.y / self.canvas_frame.zoom_ratio[0]  # 更新上次鼠标位置的y坐标
+        # 更新上次鼠标位置
+        self.drag_data["x"] = event.x / self.canvas_frame.zoom_ratio[0]  # 更新上次鼠标位置的x坐标
+        self.drag_data["y"] = event.y / self.canvas_frame.zoom_ratio[0]  # 更新上次鼠标位置的y坐标
+
+        self._drag_moved = True
 
     def mouse_release_event(self, event):  # 处理鼠标松开事件
-        if not self.is_drag:  # 在释放的时候修改拖拽标记为可拖拽
-            self.is_drag = True  # 标记正在拖拽
-        if self.is_drag:  # 只有在拖拽状态下才处理
-            # 恢复光标样式
-            self.canvas.config(cursor="")
-
+        # 恢复光标样式
+        self.canvas.config(cursor="")
         # 松开按钮时解绑拖动事件（防止标注瞬移）
         self.canvas.unbind("<B1-Motion>")  # 解绑鼠标拖动事件
 
+        if self._drag_snapshot is not None and self._drag_moved:
+            self._drag_snapshot['shape'] = self
+            self.canvas_frame.push_edit_action(self._drag_snapshot)
 
+        self._drag_snapshot = None
+        self._drag_moved = False
+        self.drag_mode = None
+        self.drag_vertex_idx = None
+
+
+    def _update_vertex_lines(self, vertex_idx):  # 更新单顶点关联的两条边
+        """更新顶点 vertex_idx 的两条相邻边在 canvas 上的坐标"""
+        n = len(self.points)
+        zoom = self.canvas_frame.zoom_ratio[0]
+
+        # 入边：points[prev] → points[vertex_idx]
+        prev_idx = (vertex_idx - 1) % n
+        x1, y1, _ = self.points[prev_idx]
+        x2, y2, _ = self.points[vertex_idx]
+        self.canvas.coords(self.lines[prev_idx], x1*zoom, y1*zoom, x2*zoom, y2*zoom)
+
+        # 出边：points[vertex_idx] → points[next]
+        x1, y1, _ = self.points[vertex_idx]
+        x2, y2, _ = self.points[(vertex_idx + 1) % n]
+        self.canvas.coords(self.lines[vertex_idx], x1*zoom, y1*zoom, x2*zoom, y2*zoom)
+
+    def _on_hover(self, event):  # 悬停光标反馈 鼠标悬停时给用户视觉提示
+        temp_x = self.canvas.canvasx(event.x)
+        temp_y = self.canvas.canvasy(event.y)
+        if self.find_nearest_vertex(temp_x, temp_y, tolerance=8) is not None:
+            self.canvas.config(cursor="hand2")
+        else:
+            temp_ix = temp_x / self.canvas_frame.zoom_ratio[0]
+            temp_iy = temp_y / self.canvas_frame.zoom_ratio[0]
+            self.canvas.config(cursor="fleur" if self.is_in_polygon(temp_ix, temp_iy) else "")
 
 
 
