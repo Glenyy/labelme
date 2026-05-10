@@ -82,14 +82,15 @@ class ToolPolygonalEditorWidget(ttk.Frame):
         self.delete_polygonal_button.pack(fill=BOTH, side=LEFT, pady=5)
 
         # 创建 撤销按钮
-        # undo_img_path = os.path.join(imgdir, "undo.png")
-        # undo_img = Image.open(undo_img_path)
-        # undo_img.thumbnail((25, 25), Image.LANCZOS)
-        # self.undo_photo_img = ImageTk.PhotoImage(undo_img)  # 使用self防止图片对象被垃圾回收
-        # self.undo_btn = ttk.Button(self.polygonal_editor_frame, text='撤销(U)', image=self.undo_photo_img, compound=TOP,
-        #                            style='tool.TButton', takefocus=False, state=DISABLED)
-        # self.undo_btn.bind('<Enter>', lambda event: self.on_mouse_in_button('撤销最近一次添加和编辑'))
-        # self.undo_btn.pack(fill=BOTH, side=LEFT, pady=5)
+        undo_img_path = os.path.join(imgdir, "undo.png")
+        undo_img = Image.open(undo_img_path)
+        undo_img.thumbnail((25, 25), Image.LANCZOS)
+        self.undo_photo_img = ImageTk.PhotoImage(undo_img)  # 使用self防止图片对象被垃圾回收
+        self.undo_btn = ttk.Button(self.polygonal_editor_frame, text='撤销(U)', image=self.undo_photo_img, compound=TOP,
+                                   style='tool.TButton', takefocus=False, state=DISABLED,
+                                   command=self.canvas_frame.undo_edit_action)
+        self.undo_btn.bind('<Enter>', lambda event: self.on_mouse_in_button('撤销最近一次添加和编辑'))
+        self.undo_btn.pack(fill=BOTH, side=LEFT, pady=5)
 
         # 创建 调节亮度对比度按钮
         # color__img_path = os.path.join(imgdir, "color.png")

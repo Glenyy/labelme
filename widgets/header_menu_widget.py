@@ -118,17 +118,17 @@ class HeaderMenuWidget(ttk.Frame):
                                    accelerator="Ctrl+R", command=lambda: self.update_current_operation(self.create_rectangle))
         self.rectangle_index = self.edit_menu.index('end')
 
-        # 创建圆
-        self.edit_menu.add_command(label='创建圆', underline=0, font=('等线', 10),
-                                   image=self.objects_photo_img, compound=LEFT, state=DISABLED,
-                                   command=lambda: self.update_current_operation(self.create_circle))
-        self.circle_index = self.edit_menu.index('end')
-
-        # 创建直线
-        self.edit_menu.add_command(label='创建直线', underline=0, font=('等线', 10),
-                                   image=self.objects_photo_img, compound=LEFT, state=DISABLED,
-                                   command=lambda: self.update_current_operation(self.create_line))
-        self.line_index = self.edit_menu.index('end')
+        # # 创建圆
+        # self.edit_menu.add_command(label='创建圆', underline=0, font=('等线', 10),
+        #                            image=self.objects_photo_img, compound=LEFT, state=DISABLED,
+        #                            command=lambda: self.update_current_operation(self.create_circle))
+        # self.circle_index = self.edit_menu.index('end')
+        #
+        # # 创建直线
+        # self.edit_menu.add_command(label='创建直线', underline=0, font=('等线', 10),
+        #                            image=self.objects_photo_img, compound=LEFT, state=DISABLED,
+        #                            command=lambda: self.update_current_operation(self.create_line))
+        # self.line_index = self.edit_menu.index('end')
 
         self.menu_bar.add_cascade(label='编辑(E)', menu=self.edit_menu, underline=0, font=('等线', 10))
 
@@ -228,8 +228,8 @@ class HeaderMenuWidget(ttk.Frame):
 
             self.edit_menu.entryconfig(self.polygon_index, state=NORMAL)
             self.edit_menu.entryconfig(self.rectangle_index, state=NORMAL)
-            self.edit_menu.entryconfig(self.circle_index, state=NORMAL)
-            self.edit_menu.entryconfig(self.line_index, state=NORMAL)
+            # self.edit_menu.entryconfig(self.circle_index, state=NORMAL)
+            # self.edit_menu.entryconfig(self.line_index, state=NORMAL)
 
             self.view_menu.entryconfig(self.zoom_in_index, state=NORMAL)
             self.view_menu.entryconfig(self.zoom_out_index, state=NORMAL)
@@ -273,8 +273,8 @@ class HeaderMenuWidget(ttk.Frame):
 
             self.edit_menu.entryconfig(self.polygon_index, state=NORMAL)
             self.edit_menu.entryconfig(self.rectangle_index, state=NORMAL)
-            self.edit_menu.entryconfig(self.circle_index, state=NORMAL)
-            self.edit_menu.entryconfig(self.line_index, state=NORMAL)
+            # self.edit_menu.entryconfig(self.circle_index, state=NORMAL)
+            # self.edit_menu.entryconfig(self.line_index, state=NORMAL)
 
             self.view_menu.entryconfig(self.zoom_in_index, state=NORMAL)
             self.view_menu.entryconfig(self.zoom_out_index, state=NORMAL)
@@ -311,8 +311,8 @@ class HeaderMenuWidget(ttk.Frame):
 
         self.edit_menu.entryconfig(self.polygon_index, state=DISABLED)
         self.edit_menu.entryconfig(self.rectangle_index, state=DISABLED)
-        self.edit_menu.entryconfig(self.circle_index, state=DISABLED)
-        self.edit_menu.entryconfig(self.line_index, state=DISABLED)
+        # self.edit_menu.entryconfig(self.circle_index, state=DISABLED)
+        # self.edit_menu.entryconfig(self.line_index, state=DISABLED)
 
         self.view_menu.entryconfig(self.zoom_in_index, state=DISABLED)
         self.view_menu.entryconfig(self.zoom_out_index, state=DISABLED)

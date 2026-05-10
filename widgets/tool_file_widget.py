@@ -108,8 +108,8 @@ class ToolFileWidget(ttk.Frame):
 
             self.header_frame.edit_menu.entryconfig(self.header_frame.polygon_index, state=NORMAL)
             self.header_frame.edit_menu.entryconfig(self.header_frame.rectangle_index, state=NORMAL)
-            self.header_frame.edit_menu.entryconfig(self.header_frame.circle_index, state=NORMAL)
-            self.header_frame.edit_menu.entryconfig(self.header_frame.line_index, state=NORMAL)
+            # self.header_frame.edit_menu.entryconfig(self.header_frame.circle_index, state=NORMAL)
+            # self.header_frame.edit_menu.entryconfig(self.header_frame.line_index, state=NORMAL)
 
             self.prev_btn.config(state=DISABLED)
             self.next_btn.config(state=DISABLED)

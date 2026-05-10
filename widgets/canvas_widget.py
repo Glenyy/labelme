@@ -4,6 +4,7 @@ from ttkbootstrap.constants import *
 from PIL import Image, ImageTk
 import constants
 from utils.polygon_shape import PolygonShape
+from utils.rectangle_shape import RectangleShape
 import json
 
 
@@ -170,6 +171,11 @@ class CanvasWidget(ttk.Frame):
                 polygon = PolygonShape(self, points)
                 polygon.draw_json()
                 self.shape.append(polygon)
+            elif shape['type'] == 'rectangle':
+                points = shape['points']
+                rectangle = RectangleShape(self, points)
+                rectangle.draw_json()
+                self.shape.append(rectangle)
 
     def center_image(self, canvas_width, canvas_height, img_width, img_height):  # 图片居中显示且左上角坐标为0
         # 设置 scrollregion，使 Canvas 的 (0, 0) 对应图片的左上角
@@ -381,25 +387,25 @@ class CanvasWidget(ttk.Frame):
         self.edit_undo_stack.append(action)
 
     def undo_edit_action(self, event=None):  # 撤销编辑操作(核心)
-        if not self.edit_undo_stack:
+        if not self.edit_undo_stack:  # 如果撤销栈为空，直接返回
             return
-        action = self.edit_undo_stack.pop()
-        t = action['type']
-        shape = action['shape']
+        action = self.edit_undo_stack.pop()  # 从撤销栈中弹出最后一个操作
+        t = action['type']  # 获取操作类型
+        shape = action['shape']  # 获取操作中的多边形对象
 
-        if t == 'move_vertex':
-            idx = action['vertex_idx']
-            ox, oy = action['old_pos']
-            _, _, point_id = shape.points[idx]
-            shape.points[idx] = (ox, oy, point_id)
-            shape.redraw()
+        if t == 'move_vertex':  # 如果是类型为move_vertex的操作
+            idx = action['vertex_idx']  # 获取被拖拽的顶点索引
+            ox, oy = action['old_pos']  # 获取旧的顶点位置
+            _, _, point_id = shape.points[idx]  # 获取旧的顶点位置和id
+            shape.points[idx] = (ox, oy, point_id)  # 更新顶点位置
+            shape.redraw()  # 重新绘制多边形
 
-        elif t == 'move_polygon':
-            old_points = action['old_points']
-            for i, (ox, oy) in enumerate(old_points):
-                _, _, point_id = shape.points[i]
-                shape.points[i] = (ox, oy, point_id)
-            shape.redraw()
+        elif t == 'move_polygon':  # 如果是类型为move_polygon的操作
+            old_points = action['old_points']  # 获取旧的多边形顶点位置
+            for i, (ox, oy) in enumerate(old_points):  # 遍历旧的顶点位置
+                _, _, point_id = shape.points[i]  # 获取旧的顶点位置和id
+                shape.points[i] = (ox, oy, point_id)  # 更新顶点位置
+            shape.redraw()  # 重新绘制多边形
 
         # elif t == 'delete_polygon':
         #     shape_data = action['shape_data']
@@ -413,10 +419,22 @@ class CanvasWidget(ttk.Frame):
             for shape in self.shape:
                 shape.deselect()  # 当前操作状态改变时，取消之前选中的多边形
             self.tool_widget_frame.tool_polygonal_editor_frame.delete_polygonal_button.config(state=DISABLED)  # 处于绘制多边形模式，禁用删除按钮
+            self.tool_widget_frame.tool_polygonal_editor_frame.undo_btn.config(state=DISABLED)  # 处于绘制多边形模式，禁用撤销按钮
             self.canvas.unbind("<Button-1>")  # 解除当前绑定的事件
             self.current_operation.bind_events()
+
+        elif self.current_operation_tip == 'create_rectangle':  # 如果tip是create_rectangle则创建绘制矩形的对象
+            self.current_operation = RectangleShape(self)
+            for shape in self.shape:
+                shape.deselect()  # 当前操作状态改变时，取消之前选中的矩形
+            self.tool_widget_frame.tool_polygonal_editor_frame.delete_polygonal_button.config(state=DISABLED)  # 处于绘制多边形模式，禁用删除按钮
+            self.tool_widget_frame.tool_polygonal_editor_frame.undo_btn.config(state=DISABLED)  # 处于绘制多边形模式，禁用撤销按钮
+            self.canvas.unbind("<Button-1>")  # 解除当前绑定的事件
+            self.current_operation.bind_events()
+
         elif self.current_operation_tip == 'edit_polygon':  # 进入编辑多边形的模式
             self.current_operation = None  # 编辑多边形模式不需要创建新的对象 但是要可以对目前canvas上所有的图形编辑操作，包括删除、移动、缩放等（且这些操作在其对应的shape类中实现）
+            self.tool_widget_frame.tool_polygonal_editor_frame.undo_btn.config(state=NORMAL)  # 启用撤销按钮
             self.canvas.bind("<Button-1>", self.on_edit_depiction_click)  # 绑定点击事件，用于选择多边形进行编辑
             self.root.bind("<Control-z>", self.undo_edit_action)  # 绑定撤销编辑操作的事件
 
@@ -426,6 +444,9 @@ class CanvasWidget(ttk.Frame):
         self.current_operation.unbind_events()  # 解除当前绑定
         if self.current_operation_tip == 'create_polygon':
             self.current_operation = PolygonShape(self)
+            self.current_operation.bind_events()
+        elif self.current_operation_tip == 'create_rectangle':
+            self.current_operation = RectangleShape(self)
             self.current_operation.bind_events()
 
     def shape_to_dict(self):  # 遍历所有shape图形并转化为字典
@@ -447,7 +468,7 @@ class CanvasWidget(ttk.Frame):
             # 将canvas的坐标转化为图片上的相对坐标
             temp_image_x = temp_x / self.zoom_ratio[0]
             temp_image_y = temp_y / self.zoom_ratio[0]
-            if self.selected_depiction.is_in_polygon(temp_image_x, temp_image_y):
+            if self.selected_depiction.is_in_shape(temp_image_x, temp_image_y):
                 return  # 如果点击的位置在当前选中的多边形内，则直接返回，不应该再次触发on_edit_depiction_click函数的主要内容
             # 点击在多边形外但靠近顶点，也保留选中状态（放行给顶点拖拽）
             if self.selected_depiction.find_nearest_vertex(temp_x, temp_y, tolerance=8) is not None:
@@ -481,7 +502,7 @@ class CanvasWidget(ttk.Frame):
 
     def select_depiction_at_position(self, x, y):  # 根据当前点击位置判断是否有多边形 是哪一个多边形
         for shape in self.shape:
-            if shape.is_in_polygon(x, y):
+            if shape.is_in_shape(x, y):
                 return shape
         return
 

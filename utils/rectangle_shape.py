@@ -1,17 +1,16 @@
-class PolygonShape:
+class RectangleShape:
     def __init__(self, canvas_frame, points=None):
         self.canvas_frame = canvas_frame
         self.canvas = canvas_frame.canvas
 
-        self.shape_type = "polygon"  # 图形类型 多边形
-        self.points = []  # 存储顶点(坐标及id) 顶点坐标是相对于图片的坐标，而不是canvas上的绝对坐标
-        # 所有 Shape 对象中的 points 都是以图像左上角为原点 (0,0)，单位是像素
-        # 所以在保存 Shape 对象时，需要保存图像的缩放比例和偏移量，以便在加载时正确地绘制 Shape 对象
-        self.json_points = points  # 保存顶点坐标为json格式，用于保存和加载
+        self.shape_type = "rectangle"  # 图形类型 矩形
+        self.points = []  # 存储左上和右下顶点的坐标及id 顶点坐标是相对于图片的坐标，而不是canvas上的绝对坐标
+        self.rectangle_id = None  # 矩形对象id
 
-        self.lines = []   # 存储边线的 ID
-        self.temp_line = None  # 动态线条
-        self.complete = False  # 是否完成多边形
+        self.json_points = points  # 保存顶点坐标为json格式，用于保存和加载
+        self.temp_rectangle = None  # 动态矩形对象
+        self.complete = False  # 是否完成矩形绘制
+
         self.current_local_point = ()  # 当前鼠标位置
 
         self.last_zoom_ratio = canvas_frame.zoom_ratio  # 保存当前缩放比例
@@ -19,7 +18,6 @@ class PolygonShape:
         self.root = self.get_root_window()
 
         self.is_select = False  # 是否该多边形被选中(默认未选中)
-        # self.is_drag = False  # 是否正在拖拽(默认未拖拽)
 
     def find_intersection(self, width, height, x1, y1, x2, y2):  # 计算与图片的交点
         # 计算斜率 k
@@ -72,46 +70,31 @@ class PolygonShape:
         # 由于 (x1,y1) 在图片内，(x2,y2) 在图片外，应该只有一个交点
         return valid_intersections[0] if valid_intersections else None
 
-    def complete_polygon(self):
+    def complete_rectangle(self):
         """
-        完成多边形的绘制：闭合多边形
-        多边形绘制完成的标志修改，多边形添加到canvas的shape列表中，重新实例化一个多边形对象操作均由本函数实现
+        完成矩形的绘制
+        矩形绘制完成的标志修改，矩形添加到canvas的shape列表中，重新实例化一个矩形对象操作均由本函数实现
         """
         # 删除动态线条
-        if self.temp_line:
-            self.canvas.delete(self.temp_line)
+        if self.temp_rectangle:
+            self.canvas.delete(self.temp_rectangle)
 
-        # 绘制最后一条边，连接到起点
-        x0, y0, _ = self.points[0]
+        # 绘制完整的矩形
+        x0, y0, _ = self.points[0]  # 第一个顶点坐标
         x0 = x0 * self.canvas_frame.zoom_ratio[0]
         y0 = y0 * self.canvas_frame.zoom_ratio[0]
-        x_last, y_last, _ = self.points[-1]
+        x_last, y_last, _ = self.points[-1]  # 第二个顶点坐标
         x_last = x_last * self.canvas_frame.zoom_ratio[0]
         y_last = y_last * self.canvas_frame.zoom_ratio[0]
-        line_id = self.canvas.create_line(x_last, y_last, x0, y0, fill="#00ff00", width=3)
-        self.lines.append(line_id)
-        self.complete = True  # 标记多边形完成
-        # 将点和线都转成红色
+        self.rectangle_id = self.canvas.create_rectangle(x_last, y_last, x0, y0, fill="", outline="#800000", width=3)  # 完成矩形绘制
+        self.complete = True  # 标记矩形完成
+        # 将点都转成红色
         for _, _, point_id in self.points:
             self.canvas.itemconfig(point_id, fill="#800000")
-        for line_id in self.lines:
-            self.canvas.itemconfig(line_id, fill="#800000")
 
-        self.canvas_frame.shape.append(self)  # 将当前多边形添加到shape列表中
+        self.canvas_frame.shape.append(self)  # 将当前矩形添加到shape列表中
         self.canvas_frame.create_new_current_operation()  # 重新实例化一个shape
         # print(self.canvas_frame.shape)  # 打印测试是否添加成功
-
-    def is_close_to_first_point(self, x, y, tolerance=10):
-        """
-        检查鼠标是否接近第一个顶点，用于判断闭合多边形
-        """
-        if not self.points:
-            return False
-
-        x0, y0, _ = self.points[0]
-        x0 = x0 * self.canvas_frame.zoom_ratio[0]
-        y0 = y0 * self.canvas_frame.zoom_ratio[0]
-        return (x - x0) ** 2 + (y - y0) ** 2 <= tolerance ** 2
 
     def bind_events(self):  # 每次新建一个绘图对象就要绑定事件
         self.on_click_id = self.canvas.bind("<Button-1>", self.on_click, add="+")      # 左键点击确定点  "+"表示添加新绑定而不覆盖现有绑定
@@ -120,7 +103,7 @@ class PolygonShape:
 
     def on_click(self, event):
         """
-        鼠标点击事件：确定一个点，绘制或完成多边形
+        鼠标点击事件：确定一个点，绘制或完成矩形绘制
         """
         # 获取鼠标点击的 Canvas 坐标
         x = self.canvas.canvasx(event.x)
@@ -141,9 +124,15 @@ class PolygonShape:
             if self.complete:
                 return  # 完成的多边形不允许添加新点
 
-            # 检查是否回到起点（闭合多边形）
-            if len(self.points) >= 3 and self.is_close_to_first_point(x, y):
-                self.complete_polygon()
+            # 检查是否为矩形的第二个点
+            if len(self.points) >= 1:
+                image_x = x / self.canvas_frame.zoom_ratio[0]
+                image_y = y / self.canvas_frame.zoom_ratio[0]
+                point_id = self.canvas.create_oval(x - 5, y - 5, x + 5, y + 5,
+                                                   fill="#00ff00")  # 绘制点(绘制点需要使用canvas上的实际坐标)
+                self.points.append((image_x, image_y, point_id))  # 存储点和其 ID
+
+                self.complete_rectangle()  # 完成矩形绘制
                 return
 
             # 添加当前点到顶点列表
@@ -153,14 +142,6 @@ class PolygonShape:
             point_id = self.canvas.create_oval(x - 5, y - 5, x + 5, y + 5, fill="#00ff00")  # 绘制点(绘制点需要使用canvas上的实际坐标)
             self.points.append((image_x, image_y, point_id))  # 存储点和其 ID
 
-            # 如果已有点，则绘制边线
-            if len(self.points) > 1:
-                # 获取前一个点的原始像素坐标并转化为canvas上的坐标
-                prev_x, prev_y, _ = self.points[-2]
-                prev_x = prev_x * self.canvas_frame.zoom_ratio[0]
-                prev_y = prev_y * self.canvas_frame.zoom_ratio[0]
-                line_id = self.canvas.create_line(prev_x, prev_y, x, y, fill="#00ff00", width=3)
-                self.lines.append(line_id)
     def on_mouse_move(self, event):
         """
         鼠标移动事件：动态显示从最后一个点到当前鼠标位置的线条
@@ -178,12 +159,11 @@ class PolygonShape:
         img_width = current_image.width
         img_height = current_image.height
 
-        # 检查点击位置是否在图片范围内
-        # if 0 <= x <= img_width and 0 <= y <= img_height:
+        # 如果没有点或矩形已完成完成，则直接返回
         if not self.points or self.complete:
             return
 
-        last_x, last_y, _ = self.points[-1]
+        last_x, last_y, _ = self.points[-1]  # 也就是第一个顶点坐标
         last_x = last_x * self.canvas_frame.zoom_ratio[0]
         last_y = last_y * self.canvas_frame.zoom_ratio[0]
 
@@ -195,76 +175,34 @@ class PolygonShape:
             self.current_local_point = (self.current_local_point[0] / self.canvas_frame.zoom_ratio[0],
                                         self.current_local_point[1] / self.canvas_frame.zoom_ratio[0])
 
-        # 删除之前的临时线条
-        if self.temp_line:
-            self.canvas.delete(self.temp_line)
+        # 删除之前的临时矩形
+        if self.temp_rectangle:
+            self.canvas.delete(self.temp_rectangle)
 
-        # 绘制新的临时线条
+        # 绘制新的临时矩形
         if 0 <= x <= img_width and 0 <= y <= img_height:  # 如果当前鼠标位置在图片内
-            self.temp_line = self.canvas.create_line(last_x, last_y, x, y, fill="#00ff00", width=3)
+            self.temp_rectangle = self.canvas.create_rectangle(last_x, last_y, x, y, fill="", outline="#00ff00",
+                                                               width=3)
         else:  # 如果当前鼠标位置在图片外
             # 鼠标当前点与上一个点之间的连线与图片边界的交点作为绘制的临时点
             meeting_point = self.find_intersection(img_width, img_height, last_x, last_y, x, y)
-            self.temp_line = self.canvas.create_line(last_x, last_y, meeting_point[0], meeting_point[1],
-                                                     fill="#00ff00", width=3)
-        # print(self.points)
+            self.temp_rectangle = self.canvas.create_rectangle(last_x, last_y, meeting_point[0], meeting_point[1],
+                                                               fill="", outline="#00ff00", width=3)
 
-            # 当前所有点围成动态阴影多边形 tkinter不支持带透明度（Alpha）通道的颜色表示，暂时不实现
-            # if len(self.points) >= 2:
-            #     self.canvas.delete("shadow")  # 删除之前的阴影
-            #     shadow_points = []
-            #     for point in self.points:
-            #         shadow_points = shadow_points + [(point[0], point[1])]
-            #     shadow_points = shadow_points + [(x, y)]
-            #     self.canvas.create_polygon(shadow_points, fill="#00ff00", outline="", tags="shadow")
     def undo(self, event=None):
         """
         撤销上一步操作：删除最后一个点和其对应的边线
         """
-        # if self.complete:
-        #     for _, _, point_id in self.points:
-        #         self.canvas.delete(point_id)
-        #     for line_id in self.lines:
-        #         self.canvas.delete(line_id)
-        #     self.points = []
-        #     self.lines = []
-        #     self.canvas.delete(self.temp_line)
-        #     self.temp_line = None
-        #     self.complete = False
-        #     return  # 直接删除多边形
-
         if not self.points:
             return
 
-        # 删除最后一个点
+        # 删除最后一个点(也就是第一个顶点)
         _, _, point_id = self.points.pop()
         self.canvas.delete(point_id)
 
-        # 删除最后一条线（如果有）
-        if self.lines:
-            line_id = self.lines.pop()
-            self.canvas.delete(line_id)
-        if not self.points:
-            self.canvas.delete(self.temp_line)
-
-        # # 如果撤销到空状态，清空完成状态
-        # if not self.points:
-        #     self.complete = False
-
-        # 如果有动态线条，重新更新动态线条
-        if self.points and self.temp_line:
-            self.canvas.delete(self.temp_line)
-            last_x, last_y, _ = self.points[-1]
-            last_x = last_x * self.canvas_frame.zoom_ratio[0]
-            last_y = last_y * self.canvas_frame.zoom_ratio[0]
-
-            # 获取鼠标的屏幕坐标 (因为这个undo函数绑定的是root而不是canvas，所以获取的坐标要转换成canvas坐标）
-            x_screen, y_screen = self.canvas.winfo_pointerxy()
-            # 转换为 Canvas 坐标
-            x = self.canvas.canvasx(x_screen - self.canvas.winfo_rootx())
-            y = self.canvas.canvasy(y_screen - self.canvas.winfo_rooty())
-
-            self.temp_line = self.canvas.create_line(last_x, last_y, x, y, fill="#00ff00", width=3)
+        # 删除动态矩形
+        if self.temp_rectangle:
+            self.canvas.delete(self.temp_rectangle)
 
     def unbind_events(self):  # 结束该对象的绘制需要解绑事件
         self.canvas.unbind("<Button-1>", self.on_click_id)
@@ -281,6 +219,7 @@ class PolygonShape:
         if self.is_select:  # 如果该多边形被选中则可以解绑，否则不需要解绑
             self.is_select = False  # 标记该多边形未被选中
             self.deselect()  # 取消选中多边形，将颜色改为红色
+            self.canvas.unbind("<Motion>", self._hover_id)  # 解绑悬停事件
             self.canvas.unbind("<Button-1>", self.button1_id)  # 解绑鼠标按下事件
             # self.canvas.unbind("<B1-Motion>")  # 解绑鼠标拖动事件
             self.canvas.unbind("<ButtonRelease-1>")  # 解绑鼠标释放事件
@@ -299,14 +238,14 @@ class PolygonShape:
         if self.complete:
             # 记录所有点的坐标
             points = [(x + dx, y + dy) for x, y, _ in self.points]
-            # 删除所有点和线
+            # 删除所有点和矩形
             for _, _, point_id in self.points:
                 self.canvas.delete(point_id)
-            for line_id in self.lines:
-                self.canvas.delete(line_id)
-            # 重新绘制点和线
+            if self.rectangle_id:
+                self.canvas.delete(self.rectangle_id)
+            # 重新绘制点和矩形
             self.points = []
-            self.lines = []
+            self.rectangle_id = None
             # 绘制点
             for i, (image_x, image_y) in enumerate(points):
                 # 将相对于图片的坐标转化为canvas上的坐标并绘制
@@ -315,14 +254,12 @@ class PolygonShape:
                 point_id = self.canvas.create_oval(x - 5, y - 5, x + 5, y + 5, fill="#800000")  # 绘制点(绘制点还是需要canvas上的实际坐标)
                 self.points.append((image_x, image_y, point_id))  # 存储点和其 ID
 
-            # 绘制线
-            for i in range(len(self.points)):
-                x1, y1, _ = self.points[i]
-                x2, y2, _ = self.points[(i + 1) % len(self.points)]
-                line_id = self.canvas.create_line(x1 * self.canvas_frame.zoom_ratio[0], y1 * self.canvas_frame.zoom_ratio[0],
-                                                  x2 * self.canvas_frame.zoom_ratio[0], y2 * self.canvas_frame.zoom_ratio[0],
-                                                  fill="#800000", width=3)  # 绘制线(绘制线还是需要canvas上的实际坐标)
-                self.lines.append(line_id)
+            # 绘制矩形
+            x1, y1, _ = self.points[0]
+            x2, y2, _ = self.points[1]
+            self.rectangle_id = self.canvas.create_rectangle(x1 * self.canvas_frame.zoom_ratio[0], y1 * self.canvas_frame.zoom_ratio[0],
+                                                             x2 * self.canvas_frame.zoom_ratio[0], y2 * self.canvas_frame.zoom_ratio[0],
+                                                             fill="", outline="#800000", width=3)  # 完成矩形绘制
 
             # 根据是否选中，改变颜色
             if self.is_select:
@@ -330,18 +267,20 @@ class PolygonShape:
             else:
                 self.deselect()
 
-    def dynamic_draw(self):  # 动态重绘多边形 这个多边形是没有绘制完成的
+
+    def dynamic_draw(self):  # 动态重绘矩形 这个矩形是没有绘制完成的
         if not self.complete:
             # 记录所有点的坐标
             points = [(x, y) for x, y, _ in self.points]
-            # 删除所有点和线
+            # 删除所有点和动态矩形
             for _, _, point_id in self.points:
                 self.canvas.delete(point_id)
-            for line_id in self.lines:
-                self.canvas.delete(line_id)
-            # 重新绘制点和线
+            if self.temp_rectangle:
+                self.canvas.delete(self.temp_rectangle)
+
+            # 重新绘制点和动态矩形
             self.points = []
-            self.lines = []
+            self.temp_rectangle = None
             # 绘制点
             for i, (image_x, image_y) in enumerate(points):
                 # 将相对于图片的坐标转化为canvas上的坐标并绘制
@@ -350,29 +289,19 @@ class PolygonShape:
                 point_id = self.canvas.create_oval(x - 5, y - 5, x + 5, y + 5,
                                                    fill="#00ff00")  # 绘制点(绘制点还是需要canvas上的实际坐标)
                 self.points.append((image_x, image_y, point_id))  # 存储点和其 ID
-            # 绘制线
-            for i in range(len(self.points) - 1):
-                x1, y1, _ = self.points[i]
-                x2, y2, _ = self.points[(i + 1)]
-                line_id = self.canvas.create_line(x1 * self.canvas_frame.zoom_ratio[0],
-                                                  y1 * self.canvas_frame.zoom_ratio[0],
-                                                  x2 * self.canvas_frame.zoom_ratio[0],
-                                                  y2 * self.canvas_frame.zoom_ratio[0],
-                                                  fill="#00ff00", width=3)  # 绘制线(绘制线还是需要canvas上的实际坐标)
-                self.lines.append(line_id)
-            # 绘制最后一个点到鼠标当前点的线
-            if len(self.points) > 0:
-                last_x, last_y, _ = self.points[-1]
-                # 获取鼠标当前的 Canvas 坐标
-                self.temp_line = self.canvas.create_line(last_x * self.canvas_frame.zoom_ratio[0],
-                                                         last_y * self.canvas_frame.zoom_ratio[0],
-                                                         self.current_local_point[0] * self.canvas_frame.zoom_ratio[0],
-                                                         self.current_local_point[1] * self.canvas_frame.zoom_ratio[0],
-                                                         fill="#00ff00", width=3)  # 绘制线(绘制线还是需要canvas上的实际坐标)
+
+            # 绘制动态矩形
+            last_x, last_y, _ = self.points[-1]
+            # 获取鼠标当前的 Canvas 坐标 并将其转换为 canvas 上的坐标 并绘制动态矩形
+            self.temp_rectangle = self.canvas.create_rectangle(last_x * self.canvas_frame.zoom_ratio[0],
+                                                               last_y * self.canvas_frame.zoom_ratio[0],
+                                                               self.current_local_point[0] * self.canvas_frame.zoom_ratio[0],
+                                                               self.current_local_point[1] * self.canvas_frame.zoom_ratio[0],
+                                                               fill="", outline="#800000", width=3)
 
     def to_dict(self):
         if self.complete:
-            return {'type': 'polygon', 'points': [(x, y) for x, y, _ in self.points]}
+            return {'type': 'rectangle', 'points': [(x, y) for x, y, _ in self.points]}
 
     def draw_json(self):
         self.complete = True
@@ -384,44 +313,30 @@ class PolygonShape:
             point_id = self.canvas.create_oval(x - 5, y - 5, x + 5, y + 5, fill="#800000")  # 绘制点(绘制点还是需要canvas上的实际坐标)
             self.points.append((image_x, image_y, point_id))  # 存储点和其 ID
 
-        # 绘制线
-        for i in range(len(self.points)):
-            x1, y1, _ = self.points[i]
-            x2, y2, _ = self.points[(i + 1) % len(self.json_points)]
-            line_id = self.canvas.create_line(x1 * self.canvas_frame.zoom_ratio[0],
-                                              y1 * self.canvas_frame.zoom_ratio[0],
-                                              x2 * self.canvas_frame.zoom_ratio[0],
-                                              y2 * self.canvas_frame.zoom_ratio[0],
-                                              fill="#800000", width=3)  # 绘制线(绘制线还是需要canvas上的实际坐标)
-            self.lines.append(line_id)
+        # 绘制矩形
+        x1, y1, _ = self.points[0]
+        x2, y2, _ = self.points[1]
+        self.rectangle_id = self.canvas.create_rectangle(x1 * self.canvas_frame.zoom_ratio[0],
+                                                         y1 * self.canvas_frame.zoom_ratio[0],
+                                                         x2 * self.canvas_frame.zoom_ratio[0],
+                                                         y2 * self.canvas_frame.zoom_ratio[0],
+                                                         fill="", outline="#800000", width=3)
 
-    def delete_myself(self):  # 删除单个多边形，包括点和线(在canvas_widget中会调用shape的该方法，删除完之后会删掉对应的shape对象）
+    def delete_myself(self):  # 删除单个多边形，包括点和矩形
         for _, _, point_id in self.points:
             self.canvas.delete(point_id)
-        for line_id in self.lines:
-            self.canvas.delete(line_id)
+        self.canvas.delete(self.rectangle_id)
 
-    def is_in_shape(self, x, y):  # 判断所给的相对位置的点是否在这个多边形内(射线法)
-        n = len(self.points)
-        inside = False
-
-        # 遍历多边形的每一条边
-        for i in range(n):
-            x1, y1, _ = self.points[i]
-            x2, y2, _ = self.points[(i + 1) % n]  # 下一条边（循环）
-
-            # 检查点是否在多边形的边上
-            if self.point_on_segment((x1, y1), (x2, y2), (x, y)):
-                return True
-
-            # 计算射线与边的交点
-            if ((y1 > y) != (y2 > y)):  # 点的 y 坐标在边的 y 范围内
-                # 计算交点的 x 坐标
-                x_intersect = (y - y1) * (x2 - x1) / (y2 - y1) + x1
-                if x <= x_intersect:  # 交点在射线右侧
-                    inside = not inside
-
-        return inside
+    def is_in_shape(self, x, y):  # 判断所给的相对位置的点是否在这个矩形内
+        if not self.complete or len(self.points) < 2:
+            return False
+        x1, y1, _ = self.points[0]
+        x2, y2, _ = self.points[1]
+        left = min(x1, x2)
+        right = max(x1, x2)
+        top = min(y1, y2)
+        bottom = max(y1, y2)
+        return left <= x <= right and top <= y <= bottom
 
     def find_nearest_vertex(self, canvas_x, canvas_y, tolerance=8):  # 检测鼠标是否在顶点容差内
         """0
@@ -443,31 +358,15 @@ class PolygonShape:
                 nearest_idx = i  # 更新最近顶点索引
         return nearest_idx if min_dist <= tolerance else None  # 返回最近顶点索引，若不在容差内则返回 None
 
-    def point_on_segment(self, p1, p2, p):
-        """判断点 p 是否在线段 p1-p2 上（包括端点）"""
-        x, y = p
-        x1, y1 = p1
-        x2, y2 = p2
-
-        # 点 p 必须在 p1 和 p2 的矩形范围内
-        if min(x1, x2) <= x <= max(x1, x2) and min(y1, y2) <= y <= max(y1, y2):
-            # 叉积为 0 表示共线
-            cross_product = (x - x1) * (y2 - y1) - (y - y1) * (x2 - x1)
-            if abs(cross_product) < 1e-10:  # 避免浮点误差
-                return True
-        return False
-
     def select(self):
         for _, _, point_id in self.points:
             self.canvas.itemconfig(point_id, fill="blue")  # 选中时将点的颜色改为蓝色
-        for line_id in self.lines:
-            self.canvas.itemconfig(line_id, fill="blue")  # 选中时将线的颜色改为蓝色
+        self.canvas.itemconfig(self.rectangle_id, outline="blue")  # 选中时将矩形的颜色改为蓝色
 
     def deselect(self):
         for _, _, point_id in self.points:
             self.canvas.itemconfig(point_id, fill="#800000")  # 取消选中时将点的颜色改回红色
-        for line_id in self.lines:
-            self.canvas.itemconfig(line_id, fill="#800000")  # 取消选中时将线的颜色改回红色
+        self.canvas.itemconfig(self.rectangle_id, outline="#800000")  # 取消选中时将矩形的颜色改回红色
 
     def move_polygon(self):  # 移动多边形
         # 整个移动多边形
@@ -585,21 +484,12 @@ class PolygonShape:
         self.drag_vertex_idx = None
 
 
-    def _update_vertex_lines(self, vertex_idx):  # 更新单顶点关联的两条边
-        """更新顶点 vertex_idx 的两条相邻边在 canvas 上的坐标"""
-        n = len(self.points)  # 多边形的顶点数量
+    def _update_vertex_lines(self, vertex_idx):  # 更新矩形轮廓的 canvas 坐标
+        """矩形用单个 rectangle_id 表示，顶点拖拽后更新整个矩形轮廓"""
         zoom = self.canvas_frame.zoom_ratio[0]
-
-        # 入边：points[prev] → points[vertex_idx]
-        prev_idx = (vertex_idx - 1) % n  # 计算前一个顶点的索引，确保循环回第一个顶点
-        x1, y1, _ = self.points[prev_idx]
-        x2, y2, _ = self.points[vertex_idx]
-        self.canvas.coords(self.lines[prev_idx], x1*zoom, y1*zoom, x2*zoom, y2*zoom)  # 更新入边
-
-        # 出边：points[vertex_idx] → points[next]
-        x1, y1, _ = self.points[vertex_idx]
-        x2, y2, _ = self.points[(vertex_idx + 1) % n]
-        self.canvas.coords(self.lines[vertex_idx], x1*zoom, y1*zoom, x2*zoom, y2*zoom)  # 更新出边
+        x1, y1, _ = self.points[0]
+        x2, y2, _ = self.points[1]
+        self.canvas.coords(self.rectangle_id, x1 * zoom, y1 * zoom, x2 * zoom, y2 * zoom)
 
     def _on_hover(self, event):  # 悬停光标反馈 鼠标悬停时给用户视觉提示
         temp_x = self.canvas.canvasx(event.x)
@@ -610,6 +500,3 @@ class PolygonShape:
             temp_ix = temp_x / self.canvas_frame.zoom_ratio[0]
             temp_iy = temp_y / self.canvas_frame.zoom_ratio[0]
             self.canvas.config(cursor="fleur" if self.is_in_shape(temp_ix, temp_iy) else "")
-
-
-
