@@ -445,7 +445,7 @@ class RectangleShape:
         self.points[self.drag_vertex_idx] = (new_img_x, new_img_y, point_id)
 
         # 更新与该顶点相连的两条边
-        self._update_vertex_lines(self.drag_vertex_idx)  # 更新被拖拽的顶点关联的两条边
+        self._update_vertex_rectangle(self.drag_vertex_idx)  # 更新被拖拽的顶点关联的两条边
 
         # 更新拖拽基准点
         self.drag_data["x"] = event.x / self.canvas_frame.zoom_ratio[0]
@@ -484,7 +484,7 @@ class RectangleShape:
         self.drag_vertex_idx = None
 
 
-    def _update_vertex_lines(self, vertex_idx):  # 更新矩形轮廓的 canvas 坐标
+    def _update_vertex_rectangle(self, vertex_idx):  # 更新矩形轮廓的 canvas 坐标
         """矩形用单个 rectangle_id 表示，顶点拖拽后更新整个矩形轮廓"""
         zoom = self.canvas_frame.zoom_ratio[0]
         x1, y1, _ = self.points[0]

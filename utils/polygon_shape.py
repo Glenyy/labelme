@@ -281,6 +281,7 @@ class PolygonShape:
         if self.is_select:  # 如果该多边形被选中则可以解绑，否则不需要解绑
             self.is_select = False  # 标记该多边形未被选中
             self.deselect()  # 取消选中多边形，将颜色改为红色
+            self.canvas.unbind("<Motion>", self._hover_id)  # 解绑悬停事件
             self.canvas.unbind("<Button-1>", self.button1_id)  # 解绑鼠标按下事件
             # self.canvas.unbind("<B1-Motion>")  # 解绑鼠标拖动事件
             self.canvas.unbind("<ButtonRelease-1>")  # 解绑鼠标释放事件
