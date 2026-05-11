@@ -31,7 +31,7 @@ class ToolFileWidget(ttk.Frame):
         self.create_file_frame()
 
     def create_file_frame(self):
-        self.file_frame =ttk.Frame(self, style='frame.TFrame')
+        self.file_frame = ttk.Frame(self, style='frame.TFrame')
         self.file_frame.pack(fill=BOTH)
 
         # 创建打开按钮

@@ -53,6 +53,8 @@ class CanvasWidget(ttk.Frame):
 
         self.shape = []
 
+        self.label_list = []  # 存储已标注的所有标签
+
         self.selected_depiction = None  # 当前选中的多边形
 
         # 找到Tk跟窗口

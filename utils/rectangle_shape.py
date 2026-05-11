@@ -401,6 +401,7 @@ class RectangleShape:
                 'old_pos': (img_x, img_y),
             }  # 记录被拖拽的顶点的旧位置
             self._drag_moved = False  # 本次拖拽是否确实移动过
+            self._vertex_origin = (img_x, img_y)  # 记录顶点原始位置，用于边界约束
             self.drag_data["x"] = event.x / self.canvas_frame.zoom_ratio[0]
             self.drag_data["y"] = event.y / self.canvas_frame.zoom_ratio[0]
             self.canvas.config(cursor="crosshair")
@@ -428,43 +429,84 @@ class RectangleShape:
         self.canvas.bind("<B1-Motion>", self.mouse_drag)  # 绑定鼠标拖动事件
 
     def mouse_drag_vertex(self, event):  # 处理顶点拖拽事件
-        dx = event.x / self.canvas_frame.zoom_ratio[0] - self.drag_data["x"]
-        dy = event.y / self.canvas_frame.zoom_ratio[0] - self.drag_data["y"]
-
-        # 计算顶点新位置（图片坐标）
-        img_x, img_y, point_id = self.points[self.drag_vertex_idx]  # 获取被拖拽的顶点的图片坐标
-        new_img_x = img_x + dx  # 计算新位置的x坐标
-        new_img_y = img_y + dy  # 计算新位置的y坐标
-
-        # 更新画布上的顶点圆
+        # dx = event.x / self.canvas_frame.zoom_ratio[0] - self.drag_data["x"]
+        # dy = event.y / self.canvas_frame.zoom_ratio[0] - self.drag_data["y"]
+        #
+        # # 计算顶点新位置（图片坐标）
+        # img_x, img_y, point_id = self.points[self.drag_vertex_idx]  # 获取被拖拽的顶点的图片坐标
+        # new_img_x = img_x + dx  # 计算新位置的x坐标
+        # new_img_y = img_y + dy  # 计算新位置的y坐标
+        #
+        # # 更新画布上的顶点圆
+        # zoom = self.canvas_frame.zoom_ratio[0]
+        # cx, cy = new_img_x * zoom, new_img_y * zoom  # 计算新位置的圆心坐标
+        # self.canvas.coords(point_id, cx - 5, cy - 5, cx + 5, cy + 5)  # 更新顶点圆的坐标，保持圆的半径为5像素
+        #
+        # # 更新顶点数据
+        # self.points[self.drag_vertex_idx] = (new_img_x, new_img_y, point_id)
+        #
+        # # 更新与该顶点相连的两条边
+        # self._update_vertex_rectangle(self.drag_vertex_idx)  # 更新被拖拽的顶点关联的两条边
+        #
+        # # 更新拖拽基准点
+        # self.drag_data["x"] = event.x / self.canvas_frame.zoom_ratio[0]
+        # self.drag_data["y"] = event.y / self.canvas_frame.zoom_ratio[0]
+        #
+        # self._drag_moved = True  # 本次拖拽确实移动过
         zoom = self.canvas_frame.zoom_ratio[0]
-        cx, cy = new_img_x * zoom, new_img_y * zoom  # 计算新位置的圆心坐标
-        self.canvas.coords(point_id, cx - 5, cy - 5, cx + 5, cy + 5)  # 更新顶点圆的坐标，保持圆的半径为5像素
+        total_dx = event.x / zoom - self.drag_data["x"]
+        total_dy = event.y / zoom - self.drag_data["y"]
 
-        # 更新顶点数据
+        origin_x, origin_y = self._vertex_origin
+        new_img_x = origin_x + total_dx
+        new_img_y = origin_y + total_dy
+
+        original_width, original_height = self.canvas_frame.original_image.size
+        new_img_x = max(0, min(new_img_x, original_width))
+        new_img_y = max(0, min(new_img_y, original_height))
+
+        _, _, point_id = self.points[self.drag_vertex_idx]
+        cx, cy = new_img_x * zoom, new_img_y * zoom
+        self.canvas.coords(point_id, cx - 5, cy - 5, cx + 5, cy + 5)
+
         self.points[self.drag_vertex_idx] = (new_img_x, new_img_y, point_id)
+        self._update_vertex_rectangle(self.drag_vertex_idx)
 
-        # 更新与该顶点相连的两条边
-        self._update_vertex_rectangle(self.drag_vertex_idx)  # 更新被拖拽的顶点关联的两条边
-
-        # 更新拖拽基准点
-        self.drag_data["x"] = event.x / self.canvas_frame.zoom_ratio[0]
-        self.drag_data["y"] = event.y / self.canvas_frame.zoom_ratio[0]
-
-        self._drag_moved = True  # 本次拖拽确实移动过
+        self._drag_moved = True
 
     def mouse_drag(self, event):  # 处理鼠标拖动事件
-        # if self.is_drag:  # 只有在拖拽状态下才处理
-        # 计算鼠标相对于图片的移动的距离
-        dx = event.x / self.canvas_frame.zoom_ratio[0] - self.drag_data["x"]
-        dy = event.y / self.canvas_frame.zoom_ratio[0] - self.drag_data["y"]
+        # # 计算鼠标相对于图片的移动的距离
+        # dx = event.x / self.canvas_frame.zoom_ratio[0] - self.drag_data["x"]
+        # dy = event.y / self.canvas_frame.zoom_ratio[0] - self.drag_data["y"]
+        #
+        # # 重绘多边形
+        # self.redraw(dx, dy)
+        #
+        # # 更新上次鼠标位置
+        # self.drag_data["x"] = event.x / self.canvas_frame.zoom_ratio[0]  # 更新上次鼠标位置的x坐标
+        # self.drag_data["y"] = event.y / self.canvas_frame.zoom_ratio[0]  # 更新上次鼠标位置的y坐标
+        #
+        # self._drag_moved = True
+        zoom = self.canvas_frame.zoom_ratio[0]
+        raw_x = event.x / zoom
+        raw_y = event.y / zoom
+        dx = raw_x - self.drag_data["x"]
+        dy = raw_y - self.drag_data["y"]
 
-        # 重绘多边形
+        original_width, original_height = self.canvas_frame.original_image.size
+        pts = [(x, y) for x, y, _ in self.points]
+        min_x = min(p[0] for p in pts)
+        max_x = max(p[0] for p in pts)
+        min_y = min(p[1] for p in pts)
+        max_y = max(p[1] for p in pts)
+
+        dx = max(-min_x, min(dx, original_width - max_x))
+        dy = max(-min_y, min(dy, original_height - max_y))
+
         self.redraw(dx, dy)
 
-        # 更新上次鼠标位置
-        self.drag_data["x"] = event.x / self.canvas_frame.zoom_ratio[0]  # 更新上次鼠标位置的x坐标
-        self.drag_data["y"] = event.y / self.canvas_frame.zoom_ratio[0]  # 更新上次鼠标位置的y坐标
+        self.drag_data["x"] = raw_x
+        self.drag_data["y"] = raw_y
 
         self._drag_moved = True
 

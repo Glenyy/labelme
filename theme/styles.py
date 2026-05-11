@@ -26,11 +26,11 @@ def set_styles(style: ttk.Style):
 
     """tool_widget"""
     style.configure(style='tool.TButton', background='#f0f0f0', foreground='black', borderwidth=0, highlightthickness=0,
-                    font=('等线', 10), height=2, widget=3)
+                    font=('等线', 10))
     style.map('tool.TButton', background=[('hover', '#e5f3ff')])
 
     style.configure(style='selected.TButton', background='#cce8ff', foreground='black', borderwidth=0,
-                    highlightthickness=0, font=('等线', 10), height=2, widget=3)
+                    highlightthickness=0, font=('等线', 10))
     style.map('selected.TButton', background=[('hover', '#cce8ff')])
 
     style.configure(style='tool.TLabel', background='#f0f0f0', font=('等线', 11, 'bold'))
@@ -39,5 +39,12 @@ def set_styles(style: ttk.Style):
 
     """footer_widget"""
     style.configure(style='mouse.TLabel', background='#f0f0f0', foreground='black', font=('等线', 10))
+
+    """choose_label_window"""
+    style.configure(style='label.TEntry', background='#f0f0f0', foreground='black', font=('等线', 10))
+    style.configure(style='label.TButton', background='#f0f0f0', foreground='black', borderwidth=0,
+                    highlightthickness=0, font=('等线', 10),  width=6)
+    style.map('label.TButton', background=[('hover', '#cce8ff')])
+    style.configure(style='label.TFrame', background='#ffffff')
 
 

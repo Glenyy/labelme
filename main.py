@@ -25,7 +25,7 @@ class MainApp(tk.Tk):
         # 设置窗口的布局和大小
         self.geometry("%dx%d+%d+%d" % (window_width, window_height, x, y))
         # 设置窗口的logo
-        logo_img_path = Path(__file__).parent / 'icons/icon.png'
+        logo_img_path = Path(__file__).parent / 'icons/logo_36px.png'
         logo_img = Image.open(logo_img_path)
         logo_photo_img = ImageTk.PhotoImage(logo_img)
         self.iconphoto(True, logo_photo_img)
