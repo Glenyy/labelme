@@ -47,4 +47,8 @@ def set_styles(style: ttk.Style):
     style.map('label.TButton', background=[('hover', '#cce8ff')])
     style.configure(style='label.TFrame', background='#ffffff')
 
+    """label_list_widget and file_list_widget"""
+    style.configure(style='name.TFrame', background='#dadada')
+    style.configure(style='name.TLabel', background='#dadada', foreground='black', font=('等线', 10))
+
 

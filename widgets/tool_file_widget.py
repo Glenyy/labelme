@@ -6,6 +6,8 @@ from widgets import imgdir
 from utils.open_file import open_file
 from utils.open_dir import open_dir
 from utils.save_to_json import save_to_json
+import base64
+import io
 
 
 class ToolFileEventListener:
@@ -126,8 +128,11 @@ class ToolFileWidget(ttk.Frame):
             if self.path.endswith('.json'):  # 是json数据则直接调用load_json
                 self.canvas_frame.image_path_json = self.path  # 将这个json文件路径单独保存到canvas_frame的image_path_json中
                 self.canvas_frame.load_json(self.path)
+                self.canvas_frame.image_path_dir = []
+                self.canvas_frame.update_file_list()  # 单文件模式下，清空文件列表
             else:
                 self.canvas_frame.image_path_dir = []  # 清空图片路径列表 否则新打开的图片路径添加进去会被第一张已经关闭的图片覆盖
+                self.canvas_frame.update_file_list()  # 单文件模式下，清空文件列表
                 self.canvas_frame.image_path_dir.append(self.path)
                 self.canvas_frame.image_path_json = None  # 这次打开的是图片，所以要将上一个json路径清除，否则在保存时，检测到该路径不为空会出现保存错误
                 self.canvas_frame.image_index = 0
@@ -148,8 +153,8 @@ class ToolFileWidget(ttk.Frame):
 
             self.header_frame.edit_menu.entryconfig(self.header_frame.polygon_index, state=NORMAL)
             self.header_frame.edit_menu.entryconfig(self.header_frame.rectangle_index, state=NORMAL)
-            self.header_frame.edit_menu.entryconfig(self.header_frame.circle_index, state=NORMAL)
-            self.header_frame.edit_menu.entryconfig(self.header_frame.line_index, state=NORMAL)
+            # self.header_frame.edit_menu.entryconfig(self.header_frame.circle_index, state=NORMAL)
+            # self.header_frame.edit_menu.entryconfig(self.header_frame.line_index, state=NORMAL)
 
 
             self.prev_btn.config(state=NORMAL)
@@ -167,6 +172,7 @@ class ToolFileWidget(ttk.Frame):
 
             # 显示图片
             self.canvas_frame.image_path_dir = self.path_dir
+            self.canvas_frame.update_file_list()
             self.canvas_frame.image_path_json = None  # 这次打开的是图片，所以要将上一个json路径清除，否则在保存时，检测到该路径不为空会出现保存错误
             self.canvas_frame.image_index = 0
             self.canvas_frame.display_image(self.canvas_frame.image_path_dir[0])
@@ -175,7 +181,7 @@ class ToolFileWidget(ttk.Frame):
 
     def next_image(self):
         self.canvas_frame.next_image()
-        self.canvas_frame.clear_shapes()
+        # self.canvas_frame.clear_shapes()
         # 关闭图片后会将header_frame的放大按钮状态设置为DISABLED，点击下一张重新出现图片时需要重新设置状态
         self.header_frame.file_menu.entryconfig(self.header_frame.close_index, state=NORMAL)
         self.header_frame.view_menu.entryconfig(self.header_frame.zoom_in_index, state=NORMAL)
@@ -188,16 +194,32 @@ class ToolFileWidget(ttk.Frame):
 
     def prev_image(self):
         self.canvas_frame.prev_image()
-        self.canvas_frame.clear_shapes()
+        # self.canvas_frame.clear_shapes()
 
     def save_to_json(self):  # 将标注好的图片保存为json
-        image_path = self.canvas_frame.image_path_dir[self.canvas_frame.image_index]
+        # image_path = self.canvas_frame.image_path_dir[self.canvas_frame.image_index]
+        # image_path = self.canvas_frame.original_image.filename
+        # image_width, image_height = self.canvas_frame.original_image.size
+        # shapes = self.canvas_frame.shape_to_dict()
+        # if self.canvas_frame.image_path_json is not None:
+        #     save_to_json(shapes, image_path, image_width, image_height, self.canvas_frame.image_path_json)
+        # else:
+        #     save_to_json(shapes, image_path, image_width, image_height)
+        # self.canvas_frame._is_saved = True
+        image_path = self.canvas_frame.original_image.filename
         image_width, image_height = self.canvas_frame.original_image.size
         shapes = self.canvas_frame.shape_to_dict()
+
+        # 将图片编码为base64
+        buffer = io.BytesIO()
+        self.canvas_frame.original_image.save(buffer, format='PNG')
+        image_data = base64.b64encode(buffer.getvalue()).decode('utf-8')
+
         if self.canvas_frame.image_path_json is not None:
-            save_to_json(shapes, image_path, image_width, image_height, self.canvas_frame.image_path_json)
+            save_to_json(shapes, image_path, image_width, image_height, image_data, self.canvas_frame.image_path_json)
         else:
-            save_to_json(shapes, image_path, image_width, image_height)
+            save_to_json(shapes, image_path, image_width, image_height, image_data)
+        self.canvas_frame._is_saved = True
 
 
     def set_tool_polygonal_editor_frame(self, tool_polygonal_editor_frame):

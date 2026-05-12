@@ -114,17 +114,36 @@ class ToolPolygonalEditorWidget(ttk.Frame):
         self.canvas_frame.set_current_operation()  # 创建相应的绘图对象
 
     def delete_now_click_depiction(self):
+        # if self.canvas_frame.selected_depiction is not None:
+        #     # 提示是否要删除
+        #     response = messagebox.askyesno("删除图形", "确定要删除选中的图形吗？")
+        #     if response:
+        #         self.canvas_frame.selected_depiction.delete_myself()  # 调用选中图形的删除方法，删除选中的图形
+        #         # 在shape即保存的现有的图形中找到selected_depiction已经删除的图形并移除
+        #         for shape in self.canvas_frame.shape:
+        #             if shape == self.canvas_frame.selected_depiction:
+        #                 self.canvas_frame.shape.remove(shape)  # 从shape列表中移除选中的图形
+        #         self.canvas_frame.selected_depiction = None
+        #         self.delete_polygonal_button.config(state=DISABLED)
+        #         self.canvas_frame.update_label_list()  # 新增
+        #     else:
+        #         return
         if self.canvas_frame.selected_depiction is not None:
-            # 提示是否要删除
             response = messagebox.askyesno("删除图形", "确定要删除选中的图形吗？")
             if response:
-                self.canvas_frame.selected_depiction.delete_myself()  # 调用选中图形的删除方法，删除选中的图形
-                # 在shape即保存的现有的图形中找到selected_depiction已经删除的图形并移除
-                for shape in self.canvas_frame.shape:
-                    if shape == self.canvas_frame.selected_depiction:
-                        self.canvas_frame.shape.remove(shape)  # 从shape列表中移除选中的图形
+                shape = self.canvas_frame.selected_depiction
+                # 推入撤销栈，记录删除位置和 shape 数据
+                idx = self.canvas_frame.shape.index(shape)
+                self.canvas_frame.push_edit_action({
+                    'type': 'delete_shape',
+                    'shape': shape,
+                    'index': idx,
+                })
+                shape.delete_myself()
+                self.canvas_frame.shape.remove(shape)
                 self.canvas_frame.selected_depiction = None
                 self.delete_polygonal_button.config(state=DISABLED)
+                self.canvas_frame.update_label_list()
             else:
                 return
 

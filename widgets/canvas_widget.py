@@ -6,6 +6,7 @@ import constants
 from utils.polygon_shape import PolygonShape
 from utils.rectangle_shape import RectangleShape
 import json
+import os
 
 
 class ScrolledCanvas(tk.Canvas):
@@ -51,8 +52,7 @@ class CanvasWidget(ttk.Frame):
         self.keep_img = None  # 保持对当前显示的图像引用，防止被垃圾回收机制回收
         self.zoom_ratio = [1, 1]  # 缩放比例
 
-        self.shape = []
-
+        self.shape = []  # 存储已标注的图形
         self.label_list = []  # 存储已标注的所有标签
 
         self.selected_depiction = None  # 当前选中的多边形
@@ -67,6 +67,7 @@ class CanvasWidget(ttk.Frame):
         # self.root.bind("<Button-1>", self.on_mouse_press_event)  # 需要只在图片范围内生效，不是整个canvas生效
 
         self.edit_undo_stack = []  # 编辑操作撤销栈
+        self._is_saved = True  # 新增：标记当前标注是否已保存
 
 
         self.create_widget()
@@ -131,6 +132,7 @@ class CanvasWidget(ttk.Frame):
 
     def display_image(self, file_path):
         self.edit_undo_stack.clear()  # 清空撤销栈
+        self._is_saved = True  # 新增：新图片无修改
         if file_path:
             self.canvas.delete('all')
             # 打开图片并创建 PhotoImage 对象
@@ -143,12 +145,31 @@ class CanvasWidget(ttk.Frame):
             # 将canvas绑定到图片大小变化
             self.canvas.bind("<Configure>", self.on_img_canvas_resize)
 
+            # 同步文件列表框选中状态
+            if hasattr(self, 'file_list_frame') and file_path in self.image_path_dir:
+                idx = self.image_path_dir.index(file_path)
+                flw = getattr(self.file_list_frame, 'file_list_widget', self.file_list_frame)
+                flw.select_index(idx)
+
+            # 恢复绘制状态
+            if hasattr(self, '_saved_operation_tip') and self._saved_operation_tip:
+                self.current_operation_tip = self._saved_operation_tip
+                self.set_current_operation()
+                self._saved_operation_tip = None
+
     def load_json(self, file_path):  # 加载json文件，将json数据中的图片路径和多边形数据加载到canvas中
         # 获取json数据
         with open(file_path, 'r') as f:
             json_data = json.load(f)
-        # 获取图片路径
+        # 获取图片路径  如果图片文件不存在，从base64恢复
         image_path = json_data['image_path']
+        if not os.path.exists(image_path) and 'image_data' in json_data:
+            import base64
+            image_bytes = base64.b64decode(json_data['image_data'])
+            os.makedirs(os.path.dirname(image_path) or '.', exist_ok=True)
+            with open(image_path, 'wb') as img_f:
+                img_f.write(image_bytes)
+
         self.image_path_dir = []
         self.image_path_dir.append(image_path)
         self.image_index = 0
@@ -165,6 +186,11 @@ class CanvasWidget(ttk.Frame):
         # 将canvas绑定到图片大小变化
         self.canvas.bind("<Configure>", self.on_img_canvas_resize)
 
+        # 同步文件列表框选中状态
+        if hasattr(self, 'file_list_frame'):
+            flw = getattr(self.file_list_frame, 'file_list_widget', self.file_list_frame)
+            flw.select_index(self.image_index)
+
         # 通过shapes数据绘制多边形
         for shape in shapes:  # 遍历shapes字段中的每个shape
             if shape['type'] == 'polygon':
@@ -172,12 +198,17 @@ class CanvasWidget(ttk.Frame):
                 # 创建多边形
                 polygon = PolygonShape(self, points)
                 polygon.draw_json()
+                polygon.label = shape.get('label', '')  # 标签
                 self.shape.append(polygon)
             elif shape['type'] == 'rectangle':
                 points = shape['points']
                 rectangle = RectangleShape(self, points)
                 rectangle.draw_json()
+                rectangle.label = shape.get('label', '')  # 标签
                 self.shape.append(rectangle)
+        # 加载完成后刷新标签列表
+        self.update_label_list()
+        self._is_saved = True  # 新增：加载的标注视为已保存
 
     def center_image(self, canvas_width, canvas_height, img_width, img_height):  # 图片居中显示且左上角坐标为0
         # 设置 scrollregion，使 Canvas 的 (0, 0) 对应图片的左上角
@@ -365,8 +396,18 @@ class CanvasWidget(ttk.Frame):
         self.canvas.bind("<Configure>", self.on_canvas_resize)
 
     def next_image(self):
+        # if self.image_index is not None:
+        #     if self.image_index >= len(self.image_path_dir) - 1:
+        #         return
+        #     self.image_index += 1
+        #     self.display_image(self.image_path_dir[self.image_index])
+        # else:
+        #     self.image_index = 0
+        #     self.display_image(self.image_path_dir[self.image_index])
         if self.image_index is not None:
             if self.image_index >= len(self.image_path_dir) - 1:
+                return
+            if not self._maybe_save_before_switch():
                 return
             self.image_index += 1
             self.display_image(self.image_path_dir[self.image_index])
@@ -375,8 +416,15 @@ class CanvasWidget(ttk.Frame):
             self.display_image(self.image_path_dir[self.image_index])
 
     def prev_image(self):
+        # if self.image_index is not None:
+        #     if self.image_index <= 0:
+        #         return
+        #     self.image_index -= 1
+        #     self.display_image(self.image_path_dir[self.image_index])
         if self.image_index is not None:
             if self.image_index <= 0:
+                return
+            if not self._maybe_save_before_switch():
                 return
             self.image_index -= 1
             self.display_image(self.image_path_dir[self.image_index])
@@ -384,18 +432,40 @@ class CanvasWidget(ttk.Frame):
     def set_tool_widget_frame(self, tool_widget_frame):
         self.tool_widget_frame = tool_widget_frame
 
+    def set_label_list_frame(self, label_list_frame):
+        self.label_list_frame = label_list_frame
+
+    def set_file_list_frame(self, file_list_frame):
+        self.file_list_frame = file_list_frame
+    def update_file_list(self):
+        self.file_list_frame.update_file_listbox()
+    def sync_file_list_selection(self):
+        """恢复文件列表框中当前图片的选中高亮"""
+        if hasattr(self, 'file_list_frame') and self.image_index is not None:
+            flw = getattr(self.file_list_frame, 'file_list_widget', self.file_list_frame)
+            flw.select_index(self.image_index)
+    def update_label_list(self):
+        """刷新标签列表框中当前图片的所有标注"""
+        if hasattr(self, 'label_list_frame'):
+            llw = getattr(self.label_list_frame, 'label_list_widget', self.label_list_frame)
+            llw.update_label_listbox()
+
     def push_edit_action(self, action):
         """将一次编辑操作推入撤销栈"""
+        self._is_saved = False  # 新增：编辑操作 = 有未保存修改
         self.edit_undo_stack.append(action)
 
     def undo_edit_action(self, event=None):  # 撤销编辑操作(核心)
         if not self.edit_undo_stack:  # 如果撤销栈为空，直接返回
             return
+        self._is_saved = False  # 新增：撤销也算修改
         action = self.edit_undo_stack.pop()  # 从撤销栈中弹出最后一个操作
         t = action['type']  # 获取操作类型
         shape = action['shape']  # 获取操作中的多边形对象
 
         if t == 'move_vertex':  # 如果是类型为move_vertex的操作
+            if shape not in self.shape:  # 新增 guard
+                return
             idx = action['vertex_idx']  # 获取被拖拽的顶点索引
             ox, oy = action['old_pos']  # 获取旧的顶点位置
             _, _, point_id = shape.points[idx]  # 获取旧的顶点位置和id
@@ -403,17 +473,28 @@ class CanvasWidget(ttk.Frame):
             shape.redraw()  # 重新绘制多边形
 
         elif t == 'move_polygon':  # 如果是类型为move_polygon的操作
+            if shape not in self.shape:  # 新增 guard
+                return
             old_points = action['old_points']  # 获取旧的多边形顶点位置
             for i, (ox, oy) in enumerate(old_points):  # 遍历旧的顶点位置
                 _, _, point_id = shape.points[i]  # 获取旧的顶点位置和id
                 shape.points[i] = (ox, oy, point_id)  # 更新顶点位置
             shape.redraw()  # 重新绘制多边形
 
+        elif t == 'delete_shape':  # 新增分支
+            idx = action.get('index', len(self.shape))
+            self.shape.insert(min(idx, len(self.shape)), shape)
+            shape.redraw()
+            shape.is_select = False
+            self.update_label_list()
+
         # elif t == 'delete_polygon':
         #     shape_data = action['shape_data']
         #     new_shape = PolygonShape(self, shape_data['points'])
         #     new_shape.draw_json()
+        #     new_shape.label = shape_data.get('label', '')
         #     self.shape.append(new_shape)
+        #     self.update_label_list()  # 新增
 
     def set_current_operation(self):  # 根据传递过来的tip创建操作对象
         if self.current_operation_tip == 'create_polygon':  # 如果tip是create_polygon则创建绘制多边形的对象
@@ -461,6 +542,42 @@ class CanvasWidget(ttk.Frame):
         for shape in self.shape:
             shape.delete_myself()
         self.shape = []
+        self.update_label_list()  # 新增
+
+    def _maybe_save_before_switch(self):
+        """切换图片前检查是否有未保存的标注，返回 True 表示可以继续切换"""
+        # 重置编辑状态
+        if self.selected_depiction:
+            self.selected_depiction.deselect()
+            self.selected_depiction.unbind_edit_events()
+            self.selected_depiction = None
+
+        # 保存绘制状态并解绑旧操作
+        self._saved_operation_tip = None
+        if self.current_operation:
+            self.current_operation.unbind_events()
+            if self.current_operation_tip in ('create_polygon', 'create_rectangle'):
+                self._saved_operation_tip = self.current_operation_tip
+        self.current_operation_tip = None
+        self.current_operation = None
+
+        # 已保存且无新修改，跳过弹窗直接清理
+        if self._is_saved and self.shape:
+            self.clear_shapes()
+            self.edit_undo_stack.clear()
+            return True
+
+        if not self.shape:
+            return True
+        from tkinter import messagebox
+        result = messagebox.askyesnocancel("保存标注", "当前图片有未保存的标注，是否保存？")
+        if result is None:
+            return False
+        if result:
+            self.tool_widget_frame.tool_file_frame.save_to_json()
+        self.clear_shapes()
+        self.edit_undo_stack.clear()
+        return True
 
     def on_edit_depiction_click(self, event):
         # 判断当前点击的位置是否在当前选中的多边形内

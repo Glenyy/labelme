@@ -5,6 +5,7 @@ class PolygonShape:
         self.canvas = canvas_frame.canvas
 
         self.shape_type = "polygon"  # 图形类型 多边形
+        self.label = ""  # 标签名称
         self.points = []  # 存储顶点(坐标及id) 顶点坐标是相对于图片的坐标，而不是canvas上的绝对坐标
         # 所有 Shape 对象中的 points 都是以图像左上角为原点 (0,0)，单位是像素
         # 所以在保存 Shape 对象时，需要保存图像的缩放比例和偏移量，以便在加载时正确地绘制 Shape 对象
@@ -102,9 +103,12 @@ class PolygonShape:
         choose_label_window = ChooseLabelWindow(self.root, self.canvas_frame, self.canvas_frame.label_list)
         self.root.wait_window(choose_label_window)  # 等待子窗口关闭
         print(self.canvas_frame.label_list)
+        self.label = choose_label_window.label_var.get()  # 新增：赋值标签
+        self.canvas_frame.sync_file_list_selection()  # 新增：恢复文件列表选中状态
 
-
+        self.canvas_frame._is_saved = False  # 新增：新标注 = 未保存
         self.canvas_frame.shape.append(self)  # 将当前多边形添加到shape列表中
+        self.canvas_frame.update_label_list()  # 新增：刷新标签列表
         self.canvas_frame.create_new_current_operation()  # 重新实例化一个shape
         # print(self.canvas_frame.shape)  # 打印测试是否添加成功
 
@@ -380,7 +384,7 @@ class PolygonShape:
 
     def to_dict(self):
         if self.complete:
-            return {'type': 'polygon', 'points': [(x, y) for x, y, _ in self.points]}
+            return {'type': 'polygon', 'label': self.label, 'points': [(x, y) for x, y, _ in self.points]}
 
     def draw_json(self):
         self.complete = True

@@ -251,8 +251,11 @@ class HeaderMenuWidget(ttk.Frame):
             if self.path.endswith('.json'):  # 是json数据则直接调用load_json
                 self.canvas_frame.image_path_json = self.path  # 将这个json文件路径单独保存到canvas_frame的image_path_json中
                 self.canvas_frame.load_json(self.path)
+                self.canvas_frame.image_path_dir = []
+                self.canvas_frame.update_file_list()  # 单文件模式下，清空文件列表
             else:
                 self.canvas_frame.image_path_dir = []  # 清空图片路径列表 否则新打开的图片路径添加进去会被第一张已经关闭的图片覆盖
+                self.canvas_frame.update_file_list()  # 单文件模式下，清空文件列表
                 self.canvas_frame.image_path_dir.append(self.path)
                 self.canvas_frame.image_path_json = None  # 这次打开的是图片，所以要将上一个json路径清楚，否则在保存时，检测到该路径不为空会出现保存错误
                 self.canvas_frame.image_index = 0
@@ -292,6 +295,7 @@ class HeaderMenuWidget(ttk.Frame):
 
             # 显示图片
             self.canvas_frame.image_path_dir = self.path_dir
+            self.canvas_frame.update_file_list()
             self.canvas_frame.image_path_json = None  # 这次打开的是图片，所以要将上一个json路径清除，否则在保存时，检测到该路径不为空会出现保存错误
             self.canvas_frame.image_index = 0
             self.canvas_frame.display_image(self.canvas_frame.image_path_dir[0])
@@ -342,7 +346,7 @@ class HeaderMenuWidget(ttk.Frame):
 
     def next_image(self, event=None):
         self.canvas_frame.next_image()
-        self.canvas_frame.clear_shapes()
+        # self.canvas_frame.clear_shapes()
         # 关闭图片后会将header_frame的关闭 放大 缩小按钮状态设置为DISABLED，点击下一张重新出现图片时需要重新设置状态
         self.file_menu.entryconfig(self.close_index, state=NORMAL)
         self.view_menu.entryconfig(self.zoom_in_index, state=NORMAL)
@@ -354,7 +358,7 @@ class HeaderMenuWidget(ttk.Frame):
 
     def prev_image(self, event=None):
         self.canvas_frame.prev_image()
-        self.canvas_frame.clear_shapes()
+        # self.canvas_frame.clear_shapes()
 
     def update_current_operation(self, operation):
         if self.canvas_frame.current_operation is not None:  # 如果当前操作存在，则先解绑事件

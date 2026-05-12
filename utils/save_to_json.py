@@ -3,12 +3,13 @@ from tkinter.filedialog import asksaveasfilename
 from tkinter import messagebox
 
 
-def save_to_json(shapes, image_path, image_width, image_height, json_path=None):
+def save_to_json(shapes, image_path, image_width, image_height, image_data, json_path=None):
     data = {
         "shapes": shapes,
         "image_path": image_path,
         "image_width": image_width,
-        "image_height": image_height
+        "image_height": image_height,
+        "image_data": image_data
     }
 
     # 如果有指定json_path，则保存到该文件
