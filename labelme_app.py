@@ -6,6 +6,7 @@ from widgets.tool_widget import ToolWidget
 from widgets.canvas_widget import CanvasWidget
 from widgets.footer_menu_widget import FooterMenuWidget
 from widgets.label_and_file_widget import LabelAndFileWidget
+from ai.ai_service import AIService
 
 
 class LabelmeApp(tk.Frame):
@@ -15,15 +16,26 @@ class LabelmeApp(tk.Frame):
         self.master = master
         self.pack(fill=BOTH, expand=YES)  # 父容器要填满可用空间才能使footer_frame贴底
 
+        self.ai_service = AIService()
+
         self.main_frame = ttk.Frame(self)
         self.canvas_frame = CanvasWidget(master=self.main_frame, canvasWidgetEventListener=self)
         self.label_and_file_widget = LabelAndFileWidget(master=self.main_frame, canvas_frame=self.canvas_frame)
 
-        self.header_frame = HeaderMenuWidget(master=self.master, canvas_frame=self.canvas_frame)
+        self.header_frame = HeaderMenuWidget(
+            master=self.master,
+            canvas_frame=self.canvas_frame,
+            ai_service=self.ai_service,
+        )
         # header_frame.pack(fill=X, side=TOP)
 
-        self.tool_widget_frame = ToolWidget(master=self, toolEventListener=self, canvas_frame=self.canvas_frame,
-                                            header_frame=self.header_frame)
+        self.tool_widget_frame = ToolWidget(
+            master=self,
+            toolEventListener=self,
+            canvas_frame=self.canvas_frame,
+            header_frame=self.header_frame,
+            ai_service=self.ai_service,
+        )
         self.header_frame.set_tool_widget_frame(self.tool_widget_frame)
         self.tool_widget_frame.pack(fill=X, side=TOP)
 

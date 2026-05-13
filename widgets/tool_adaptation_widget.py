@@ -28,7 +28,7 @@ class ToolAdaptationWidget(ttk.Frame):
 
     def create_adaptation_frame(self):
         self.adaptation_frame = ttk.Frame(self, style='frame.TFrame')
-        self.adaptation_frame.pack(fill=BOTH)
+        self.adaptation_frame.pack(fill=BOTH, expand=True)
 
         # 创建适应窗口按钮
         adaptation_img_path = os.path.join(imgdir, "zoom.png")

@@ -8,6 +8,7 @@ from pathlib import Path
 from widgets.tool_file_widget import ToolFileWidget
 from widgets.tool_polygonal_editor_widget import ToolPolygonalEditorWidget
 from widgets.tool_adaptation_widget import ToolAdaptationWidget
+from widgets.tool_ai_widget import ToolAIWidget
 
 
 class toolEventListener:
@@ -15,14 +16,15 @@ class toolEventListener:
         print('ToolEventListener')
 
 class ToolWidget(ttk.Frame):
-    def __init__(self, master, toolEventListener, canvas_frame, header_frame):
+    def __init__(self, master, toolEventListener, canvas_frame, header_frame,
+                 ai_service=None):
         ttk.Frame.__init__(self, master)
         super().__init__(master)
         self.master = master
         self.toolEventListener = toolEventListener
         self.canvas_frame = canvas_frame
         self.header_frame = header_frame
-
+        self.ai_service = ai_service
         self.imgdir = Path(__file__).parent.parent / 'icons'  # 获取图标文件夹路径
 
         self.create_widget()
@@ -39,10 +41,16 @@ class ToolWidget(ttk.Frame):
 
         self.tool_polygonal_editor_frame = ToolPolygonalEditorWidget(self.image_opr_frame, self, self.canvas_frame,
                                                                      self.header_frame)
-        self.tool_polygonal_editor_frame.pack(fill=Y, side=LEFT)
+        self.tool_polygonal_editor_frame.pack(fill=Y, side=LEFT, ipadx=0.5)
 
         self.tool_adaptation_frame = ToolAdaptationWidget(self.image_opr_frame, self, self.canvas_frame)
-        self.tool_adaptation_frame.pack(fill=Y, side=LEFT)
+        self.tool_adaptation_frame.pack(fill=Y, side=LEFT, ipadx=0.5)
+
+        if self.ai_service is not None:
+            self.tool_ai_frame = ToolAIWidget(
+                self.image_opr_frame, self.ai_service
+            )
+            self.tool_ai_frame.pack(fill=Y, side=LEFT, ipadx=0.5)
 
         self.tool_file_frame.set_tool_polygonal_editor_frame(self.tool_polygonal_editor_frame)
         self.tool_file_frame.set_tool_adaptation_frame(self.tool_adaptation_frame)

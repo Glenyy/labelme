@@ -34,7 +34,7 @@ class ToolFileWidget(ttk.Frame):
 
     def create_file_frame(self):
         self.file_frame = ttk.Frame(self, style='frame.TFrame')
-        self.file_frame.pack(fill=BOTH)
+        self.file_frame.pack(fill=BOTH, expand=True)
 
         # 创建打开按钮
         open_img_path = os.path.join(imgdir, "open.png")
@@ -113,6 +113,12 @@ class ToolFileWidget(ttk.Frame):
             # self.header_frame.edit_menu.entryconfig(self.header_frame.circle_index, state=NORMAL)
             # self.header_frame.edit_menu.entryconfig(self.header_frame.line_index, state=NORMAL)
 
+            if (self.header_frame.ai_annotate_index is not None
+                    and hasattr(self.header_frame, 'ai_service')
+                    and self.header_frame.ai_service is not None):
+                self.header_frame.edit_menu.entryconfig(
+                    self.header_frame.ai_annotate_index, state=NORMAL)
+
             self.prev_btn.config(state=DISABLED)
             self.next_btn.config(state=DISABLED)
             self.save_btn.config(state=NORMAL)
@@ -155,6 +161,12 @@ class ToolFileWidget(ttk.Frame):
             self.header_frame.edit_menu.entryconfig(self.header_frame.rectangle_index, state=NORMAL)
             # self.header_frame.edit_menu.entryconfig(self.header_frame.circle_index, state=NORMAL)
             # self.header_frame.edit_menu.entryconfig(self.header_frame.line_index, state=NORMAL)
+
+            if (self.header_frame.ai_annotate_index is not None
+                    and hasattr(self.header_frame, 'ai_service')
+                    and self.header_frame.ai_service is not None):
+                self.header_frame.edit_menu.entryconfig(
+                    self.header_frame.ai_annotate_index, state=NORMAL)
 
 
             self.prev_btn.config(state=NORMAL)

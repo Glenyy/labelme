@@ -32,7 +32,7 @@ class ToolPolygonalEditorWidget(ttk.Frame):
 
     def create_polygonal_editor_frame(self):
         self.polygonal_editor_frame = ttk.Frame(self, style='frame.TFrame')
-        self.polygonal_editor_frame.pack(fill=BOTH)
+        self.polygonal_editor_frame.pack(fill=BOTH, expand=True)
 
         # 创建 创建多边形按钮
         create_polygonal_img_path = os.path.join(imgdir, "objects.png")
@@ -139,6 +139,7 @@ class ToolPolygonalEditorWidget(ttk.Frame):
                     'shape': shape,
                     'index': idx,
                 })
+                shape.unbind_edit_events()  # ← 新增：清除画布上的残留事件绑定
                 shape.delete_myself()
                 self.canvas_frame.shape.remove(shape)
                 self.canvas_frame.selected_depiction = None

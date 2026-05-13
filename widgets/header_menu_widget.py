@@ -9,17 +9,20 @@ from utils.polygon_shape import PolygonShape
 
 
 class HeaderMenuWidget(ttk.Frame):
-    def __init__(self, master, canvas_frame):
+    def __init__(self, master, canvas_frame, ai_service=None):
         ttk.Frame.__init__(self, master)
         super().__init__()
         self.master = master
         self.canvas_frame = canvas_frame
+        self.ai_service = ai_service
 
         self.create_polygon = 'create_polygon'
         self.create_rectangle = 'create_rectangle'
         self.create_circle = 'create_circle'
         self.create_line = 'create_line'
         self.edit_polygon = 'edit_polygon'
+
+        self.ai_annotate_index = None
 
         self.create_widget()
 
@@ -130,6 +133,24 @@ class HeaderMenuWidget(ttk.Frame):
         #                            command=lambda: self.update_current_operation(self.create_line))
         # self.line_index = self.edit_menu.index('end')
 
+        # AI标注
+        self.edit_menu.add_separator()
+        ai_img_path = os.path.join(imgdir, "expert.png")
+        ai_img = Image.open(ai_img_path)
+        ai_img.thumbnail((15, 15), Image.LANCZOS)
+        self.ai_photo_img = ImageTk.PhotoImage(ai_img)
+        self.edit_menu.add_command(
+            label='绘制AI标注',
+            underline=4,
+            font=('等线', 10),
+            image=self.ai_photo_img,
+            compound=LEFT,
+            state=DISABLED,
+            accelerator="Ctrl+Shift+A",
+            command=self.on_ai_annotate,
+        )
+        self.ai_annotate_index = self.edit_menu.index('end')
+
         self.menu_bar.add_cascade(label='编辑(E)', menu=self.edit_menu, underline=0, font=('等线', 10))
 
 
@@ -231,6 +252,9 @@ class HeaderMenuWidget(ttk.Frame):
             # self.edit_menu.entryconfig(self.circle_index, state=NORMAL)
             # self.edit_menu.entryconfig(self.line_index, state=NORMAL)
 
+            if self.ai_annotate_index is not None and self.ai_service is not None:
+                self.edit_menu.entryconfig(self.ai_annotate_index, state=NORMAL)
+
             self.view_menu.entryconfig(self.zoom_in_index, state=NORMAL)
             self.view_menu.entryconfig(self.zoom_out_index, state=NORMAL)
 
@@ -279,6 +303,9 @@ class HeaderMenuWidget(ttk.Frame):
             # self.edit_menu.entryconfig(self.circle_index, state=NORMAL)
             # self.edit_menu.entryconfig(self.line_index, state=NORMAL)
 
+            if self.ai_annotate_index is not None and self.ai_service is not None:
+                self.edit_menu.entryconfig(self.ai_annotate_index, state=NORMAL)
+
             self.view_menu.entryconfig(self.zoom_in_index, state=NORMAL)
             self.view_menu.entryconfig(self.zoom_out_index, state=NORMAL)
 
@@ -317,6 +344,9 @@ class HeaderMenuWidget(ttk.Frame):
         self.edit_menu.entryconfig(self.rectangle_index, state=DISABLED)
         # self.edit_menu.entryconfig(self.circle_index, state=DISABLED)
         # self.edit_menu.entryconfig(self.line_index, state=DISABLED)
+
+        if self.ai_annotate_index is not None:
+            self.edit_menu.entryconfig(self.ai_annotate_index, state=DISABLED)
 
         self.view_menu.entryconfig(self.zoom_in_index, state=DISABLED)
         self.view_menu.entryconfig(self.zoom_out_index, state=DISABLED)
@@ -365,3 +395,66 @@ class HeaderMenuWidget(ttk.Frame):
             self.canvas_frame.current_operation.unbind_events()
         self.canvas_frame.current_operation_tip = operation  # 设置当前操作
         self.canvas_frame.set_current_operation()  # 创建对象
+
+    def on_ai_annotate(self):
+        import os
+        import threading
+        from tkinter import messagebox
+
+        if self.ai_service is None:
+            messagebox.showerror("错误", "AI服务未初始化")
+            return
+
+        if self.ai_service.current_model is None:
+            messagebox.showerror("错误", "未选择AI模型，请在工具栏选择模型")
+            return
+
+        original_image = self.canvas_frame.original_image
+        if original_image is None:
+            messagebox.showerror("错误", "请先打开一张图片")
+            return
+
+        # 先快速检查服务是否在线（5秒超时），避免等120秒无反馈
+        if not self.ai_service.health_check(timeout=5):
+            messagebox.showerror(
+                "AI服务不可达",
+                "无法连接到AI服务，请确认：\n"
+                "1. 模型服务已启动\n"
+                "2. 服务地址配置正确\n"
+                "（可通过环境变量 AI_SERVER_URL 设置地址）"
+            )
+            return
+
+        if self.ai_annotate_index is not None:
+            self.edit_menu.entryconfig(self.ai_annotate_index, state=DISABLED)
+
+        if hasattr(original_image, 'filename') and original_image.filename:
+            file_name = os.path.basename(original_image.filename)
+        else:
+            file_name = "image.jpg"
+
+        def _run():
+            try:
+                shapes = self.ai_service.predict(original_image, file_name)
+                self.master.after(0, lambda s=shapes: self._on_ai_result(s))
+            except Exception as exc:
+                self.master.after(0, lambda e=str(exc): self._on_ai_error(e))
+
+        thread = threading.Thread(target=_run, daemon=True)
+        thread.start()
+
+    def _on_ai_result(self, shapes):
+        from tkinter import messagebox
+        if shapes:
+            self.canvas_frame.load_ai_shapes(shapes)
+            messagebox.showinfo("AI标注完成", f"成功标注 {len(shapes)} 个对象")
+        else:
+            messagebox.showinfo("AI标注", "未检测到对象")
+        if self.ai_annotate_index is not None:
+            self.edit_menu.entryconfig(self.ai_annotate_index, state=NORMAL)
+
+    def _on_ai_error(self, error_msg):
+        from tkinter import messagebox
+        messagebox.showerror("AI标注错误", f"标注失败：\n{error_msg}")
+        if self.ai_annotate_index is not None:
+            self.edit_menu.entryconfig(self.ai_annotate_index, state=NORMAL)

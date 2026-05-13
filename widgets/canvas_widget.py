@@ -210,6 +210,34 @@ class CanvasWidget(ttk.Frame):
         self.update_label_list()
         self._is_saved = True  # 新增：加载的标注视为已保存
 
+    def load_ai_shapes(self, shapes_data):
+        if self.current_operation is not None:
+            self.current_operation.unbind_events()
+        self.current_operation_tip = None
+        self.current_operation = None
+
+        self.clear_shapes()
+
+        for shape_dict in shapes_data:
+            shape_type = shape_dict.get('shape_type', 'rectangle')
+            points = shape_dict.get('points', [])
+            label = shape_dict.get('label', '')
+            point_tuples = [(float(p[0]), float(p[1])) for p in points]
+
+            if shape_type == 'polygon':
+                shape_obj = PolygonShape(self, point_tuples)
+                shape_obj.draw_json()
+                shape_obj.label = label
+                self.shape.append(shape_obj)
+            elif shape_type == 'rectangle':
+                shape_obj = RectangleShape(self, point_tuples)
+                shape_obj.draw_json()
+                shape_obj.label = label
+                self.shape.append(shape_obj)
+
+        self.update_label_list()
+        self._is_saved = False
+
     def center_image(self, canvas_width, canvas_height, img_width, img_height):  # 图片居中显示且左上角坐标为0
         # 设置 scrollregion，使 Canvas 的 (0, 0) 对应图片的左上角
         self.canvas.configure(scrollregion=(0, 0, img_width, img_height))
