@@ -509,12 +509,12 @@ class CanvasWidget(ttk.Frame):
                 shape.points[i] = (ox, oy, point_id)  # 更新顶点位置
             shape.redraw()  # 重新绘制多边形
 
-        elif t == 'delete_shape':  # 新增分支
-            idx = action.get('index', len(self.shape))
-            self.shape.insert(min(idx, len(self.shape)), shape)
-            shape.redraw()
+        elif t == 'delete_shape':  # 如果是类型为delete_shape的操作
+            idx = action.get('index', len(self.shape))  # 获取删除的索引，默认为最后一个索引
+            self.shape.insert(min(idx, len(self.shape)), shape)  # 插入删除的多边形到指定索引
+            shape.redraw()  # 重新绘制多边形
             shape.is_select = False
-            self.update_label_list()
+            self.update_label_list()  # 刷新标签列表框中当前图片的所有标注
 
         # elif t == 'delete_polygon':
         #     shape_data = action['shape_data']
@@ -522,7 +522,7 @@ class CanvasWidget(ttk.Frame):
         #     new_shape.draw_json()
         #     new_shape.label = shape_data.get('label', '')
         #     self.shape.append(new_shape)
-        #     self.update_label_list()  # 新增
+        #     self.update_label_list()
 
     def set_current_operation(self):  # 根据传递过来的tip创建操作对象
         if self.current_operation_tip == 'create_polygon':  # 如果tip是create_polygon则创建绘制多边形的对象

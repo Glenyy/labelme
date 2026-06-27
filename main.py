@@ -16,8 +16,8 @@ class MainApp(tk.Tk):
         screen_width = self.winfo_screenwidth()
         screen_height = self.winfo_screenheight()
         # 窗口默认大小
-        window_width = 1250
-        window_height = 600
+        window_width = 1360
+        window_height = 700
 
         # 计算窗口的新位置
         x = (screen_width - window_width) // 2

@@ -51,7 +51,7 @@ class HeaderMenuWidget(ttk.Frame):
         self.open_photo_img = ImageTk.PhotoImage(open_img)  # 使用self防止图片对象被垃圾回收
         self.file_menu.add_command(label='打开(O)', underline=0, font=('等线', 10),
                                    image=self.open_photo_img, compound=LEFT,
-                                   accelerator="Ctrl+O", command=self.open_file)
+                                   accelerator="", command=self.open_file)
         # 下一幅菜单
         next_img_path = os.path.join(imgdir, "next.png")
         next_img = Image.open(next_img_path)
@@ -75,7 +75,7 @@ class HeaderMenuWidget(ttk.Frame):
         # 打开目录
         self.file_menu.add_command(label='打开目录(D)', underline=0, font=('等线', 10),
                                    image=self.open_photo_img, compound=LEFT,
-                                   accelerator="Ctrl+D", command=self.open_dir)
+                                   accelerator="", command=self.open_dir)
 
         # 关闭
         close_img_path = os.path.join(imgdir, "close.png")
@@ -84,7 +84,7 @@ class HeaderMenuWidget(ttk.Frame):
         self.close_photo_img = ImageTk.PhotoImage(close_img)  # 使用self防止图片对象被垃圾回收
         self.file_menu.add_command(label='关闭(C)', underline=0, font=('等线', 10),
                                    image=self.close_photo_img, compound=LEFT, state=DISABLED,
-                                   accelerator="Ctrl+W", command=self.close_file)
+                                   accelerator="", command=self.close_file)
 
         self.close_index = self.file_menu.index("end")
 
@@ -111,14 +111,14 @@ class HeaderMenuWidget(ttk.Frame):
         # 创建多边形
         self.edit_menu.add_command(label='创建多边形', underline=0, font=('等线', 10),
                                    image=self.objects_photo_img, compound=LEFT, state=DISABLED,
-                                   accelerator="Ctrl+N",
+                                   accelerator="",
                                    command=lambda: self.update_current_operation(self.create_polygon))
         self.polygon_index = self.edit_menu.index('end')
 
         # 创建矩形
         self.edit_menu.add_command(label='创建矩形', underline=0, font=('等线', 10),
                                    image=self.objects_photo_img, compound=LEFT, state=DISABLED,
-                                   accelerator="Ctrl+R", command=lambda: self.update_current_operation(self.create_rectangle))
+                                   accelerator="", command=lambda: self.update_current_operation(self.create_rectangle))
         self.rectangle_index = self.edit_menu.index('end')
 
         # # 创建圆
@@ -133,20 +133,18 @@ class HeaderMenuWidget(ttk.Frame):
         #                            command=lambda: self.update_current_operation(self.create_line))
         # self.line_index = self.edit_menu.index('end')
 
-        # AI标注
+        # 添加分隔符
         self.edit_menu.add_separator()
-        ai_img_path = os.path.join(imgdir, "expert.png")
-        ai_img = Image.open(ai_img_path)
-        ai_img.thumbnail((15, 15), Image.LANCZOS)
-        self.ai_photo_img = ImageTk.PhotoImage(ai_img)
+
+        # AI标注
         self.edit_menu.add_command(
             label='绘制AI标注',
             underline=4,
             font=('等线', 10),
-            image=self.ai_photo_img,
+            image=self.objects_photo_img,
             compound=LEFT,
             state=DISABLED,
-            accelerator="Ctrl+Shift+A",
+            accelerator="",
             command=self.on_ai_annotate,
         )
         self.ai_annotate_index = self.edit_menu.index('end')
@@ -165,39 +163,39 @@ class HeaderMenuWidget(ttk.Frame):
 
         # 文件列表对话框
 
-        # 添加分隔符
-        self.view_menu.add_separator()
+        # # 添加分隔符
+        # self.view_menu.add_separator()
 
-        # 填充所绘多边形
-        color_img_path = os.path.join(imgdir, "color.png")
-        color_img = Image.open(color_img_path)
-        color_img.thumbnail((15, 15), Image.LANCZOS)
-        self.color_photo_img = ImageTk.PhotoImage(color_img)  # 使用self防止图片对象被垃圾回收
-        self.view_menu.add_command(label='填充所绘多边形(F)', underline=0, font=('等线', 10),
-                                   image=self.color_photo_img, compound=LEFT)
+        # # 填充所绘多边形
+        # color_img_path = os.path.join(imgdir, "color.png")
+        # color_img = Image.open(color_img_path)
+        # color_img.thumbnail((15, 15), Image.LANCZOS)
+        # self.color_photo_img = ImageTk.PhotoImage(color_img)  # 使用self防止图片对象被垃圾回收
+        # self.view_menu.add_command(label='填充所绘多边形(F)', underline=0, font=('等线', 10),
+        #                            image=self.color_photo_img, compound=LEFT)
 
-        # 添加分隔符
-        self.view_menu.add_separator()
-
-        # 隐藏多边形
-        eye_img_path = os.path.join(imgdir, "eye.png")
-        eye_img = Image.open(eye_img_path)
-        eye_img.thumbnail((15, 15), Image.LANCZOS)
-        self.eye_photo_img = ImageTk.PhotoImage(eye_img)  # 使用self防止图片对象被垃圾回收
-        self.view_menu.add_command(label='隐藏多边形(H)', underline=0, font=('等线', 10),
-                                   image=self.eye_photo_img, compound=LEFT, state=DISABLED)
-
-        # 显示多边形
-        self.view_menu.add_command(label='显示多边形(S)', underline=0, font=('等线', 10),
-                                   image=self.eye_photo_img, compound=LEFT, state=DISABLED)
-
-        # 开关多边形
-        self.view_menu.add_command(label='开关多边形(S)', underline=0, font=('等线', 10),
-                                   image=self.eye_photo_img, compound=LEFT, state=DISABLED,
-                                   accelerator="T")
-
-        # 添加分隔符
-        self.view_menu.add_separator()
+        # # 添加分隔符
+        # self.view_menu.add_separator()
+        #
+        # # 隐藏多边形
+        # eye_img_path = os.path.join(imgdir, "eye.png")
+        # eye_img = Image.open(eye_img_path)
+        # eye_img.thumbnail((15, 15), Image.LANCZOS)
+        # self.eye_photo_img = ImageTk.PhotoImage(eye_img)  # 使用self防止图片对象被垃圾回收
+        # self.view_menu.add_command(label='隐藏多边形(H)', underline=0, font=('等线', 10),
+        #                            image=self.eye_photo_img, compound=LEFT, state=DISABLED)
+        #
+        # # 显示多边形
+        # self.view_menu.add_command(label='显示多边形(S)', underline=0, font=('等线', 10),
+        #                            image=self.eye_photo_img, compound=LEFT, state=DISABLED)
+        #
+        # # 开关多边形
+        # self.view_menu.add_command(label='开关多边形(S)', underline=0, font=('等线', 10),
+        #                            image=self.eye_photo_img, compound=LEFT, state=DISABLED,
+        #                            accelerator="T")
+        #
+        # # 添加分隔符
+        # self.view_menu.add_separator()
 
         # 放大
         zoom_in_img_path = os.path.join(imgdir, "zoom-in.png")
@@ -230,7 +228,7 @@ class HeaderMenuWidget(ttk.Frame):
         fit_window_img.thumbnail((15, 15), Image.LANCZOS)
         self.fit_window_photo_img = ImageTk.PhotoImage(fit_window_img)  # 使用self防止图片对象被垃圾回收
         self.view_menu.add_command(label='适应窗口(W)', underline=0, font=('等线', 10),
-                                   image=self.fit_window_photo_img, compound=LEFT, state=DISABLED, accelerator="Ctrl+F")
+                                   image=self.fit_window_photo_img, compound=LEFT, state=DISABLED, accelerator="")
         self.fit_window_index = self.view_menu.index("end")  # 获取菜单项索引
 
     def create_help_menu(self):
@@ -398,10 +396,10 @@ class HeaderMenuWidget(ttk.Frame):
 
     def on_ai_annotate(self):
         import os
-        import threading
+        import threading  # 导入线程模块
         from tkinter import messagebox
 
-        if self.ai_service is None:
+        if self.ai_service is None:  # 如果AI服务未初始化
             messagebox.showerror("错误", "AI服务未初始化")
             return
 
@@ -409,7 +407,7 @@ class HeaderMenuWidget(ttk.Frame):
             messagebox.showerror("错误", "未选择AI模型，请在工具栏选择模型")
             return
 
-        original_image = self.canvas_frame.original_image
+        original_image = self.canvas_frame.original_image  # 获取当前显示的图片对象
         if original_image is None:
             messagebox.showerror("错误", "请先打开一张图片")
             return
@@ -425,23 +423,23 @@ class HeaderMenuWidget(ttk.Frame):
             )
             return
 
-        if self.ai_annotate_index is not None:
+        if self.ai_annotate_index is not None:  # 如果AI标注按钮存在
             self.edit_menu.entryconfig(self.ai_annotate_index, state=DISABLED)
 
-        if hasattr(original_image, 'filename') and original_image.filename:
+        if hasattr(original_image, 'filename') and original_image.filename:  # 如果图片对象有filename属性且不为空
             file_name = os.path.basename(original_image.filename)
         else:
             file_name = "image.jpg"
 
-        def _run():
+        def _run():  # 定义一个内部函数，用于在新线程中执行AI标注 避免阻塞GUI
             try:
-                shapes = self.ai_service.predict(original_image, file_name)
-                self.master.after(0, lambda s=shapes: self._on_ai_result(s))
-            except Exception as exc:
-                self.master.after(0, lambda e=str(exc): self._on_ai_error(e))
+                shapes = self.ai_service.predict(original_image, file_name)  # 执行AI标注
+                self.master.after(0, lambda s=shapes: self._on_ai_result(s))  # 在主线程中更新UI
+            except Exception as exc:  # 捕获所有异常
+                self.master.after(0, lambda e=str(exc): self._on_ai_error(e))  # 在主线程中更新UI
 
-        thread = threading.Thread(target=_run, daemon=True)
-        thread.start()
+        thread = threading.Thread(target=_run, daemon=True)  # 创建一个守护线程，用于执行AI标注
+        thread.start()  # 启动线程
 
     def _on_ai_result(self, shapes):
         from tkinter import messagebox

@@ -139,7 +139,7 @@ class ToolPolygonalEditorWidget(ttk.Frame):
                     'shape': shape,
                     'index': idx,
                 })
-                shape.unbind_edit_events()  # ← 新增：清除画布上的残留事件绑定
+                shape.unbind_edit_events()  # 清除画布上的残留事件绑定
                 shape.delete_myself()
                 self.canvas_frame.shape.remove(shape)
                 self.canvas_frame.selected_depiction = None

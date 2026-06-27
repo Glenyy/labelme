@@ -487,7 +487,7 @@ class PolygonShape:
         self.drag_mode = None  # "vertex" | "polygon" | None  拖拽模式， None 表示未拖拽
         self.drag_vertex_idx = None  # 被拖拽的顶点索引 这个索引也就是在points列表中的下标
         self._drag_snapshot = None  # 撤销操作的快照，用于恢复到上一个状态时使用
-        self._drag_moved = False  # 新增：本次拖拽是否确实移动过
+        self._drag_moved = False  # 本次拖拽是否确实移动过
         # 绑定鼠标事件
         self.button1_id = self.canvas.bind("<Button-1>", self.mouse_press_event, add='+')  # 绑定鼠标按下事件
         # self.canvas.bind("<B1-Motion>", self.mouse_drag)  # 绑定鼠标拖动事件
@@ -503,7 +503,7 @@ class PolygonShape:
         temp_image_y = temp_y / self.canvas_frame.zoom_ratio[0]
 
         # 优先级 1：顶点拖拽
-        vertex_idx = self.find_nearest_vertex(temp_x, temp_y, tolerance=8)  # 检测鼠标是否在顶点容差内
+        vertex_idx = self.find_nearest_vertex(temp_x, temp_y, tolerance=8)  # 检测鼠标是否在顶点容差内并找到顶点索引
         if vertex_idx is not None:  # 如果鼠标在顶点容差内
             self.drag_mode = "vertex"  # 设置拖拽模式为顶点拖拽
             self.drag_vertex_idx = vertex_idx  # 记录被拖拽的顶点索引
@@ -513,7 +513,7 @@ class PolygonShape:
                 'vertex_idx': vertex_idx,
                 'old_pos': (img_x, img_y),
             }  # 记录被拖拽的顶点的旧位置
-            self._drag_moved = False  # 本次拖拽是否确实移动过
+            self._drag_moved = False  # 记录本次拖拽是否确实移动过
             self._vertex_origin = (img_x, img_y)  # 记录顶点原始位置，用于边界约束
             self.drag_data["x"] = event.x / self.canvas_frame.zoom_ratio[0]
             self.drag_data["y"] = event.y / self.canvas_frame.zoom_ratio[0]
@@ -529,7 +529,7 @@ class PolygonShape:
             'type': 'move_polygon',
             'old_points': [(x, y) for x, y, _ in self.points],
         }  # 记录被拖拽的多边形的旧位置
-        self._drag_moved = False  # 本次拖拽是否确实移动过
+        self._drag_moved = False  # 记录本次拖拽是否确实移动过
 
         # 处理鼠标按下事件（按下不松开）
         self.drag_data["x"] = event.x / self.canvas_frame.zoom_ratio[0]  # 记录鼠标按下时相对于图片的x坐标
